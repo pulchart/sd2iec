@@ -884,7 +884,9 @@ static void parse_rmdir(void) {
     path.dir = partition[part].current_dir;
 
     res = file_delete(&path, &dent);
-    if (res != 255)
+    if (res == 0)
+      set_error(ERROR_WRITE_PROTECT);
+    else if (res != 255)
       set_error_ts(ERROR_SCRATCHED,res,0);
   }
 }
@@ -1006,6 +1008,7 @@ static void parse_copy(void) {
   int8_t res;
   buffer_t *srcbuf,*dstbuf;
   cbmdirent_t dent;
+  uint8_t err;
 
   clean_cmdbuffer();
 
@@ -1143,9 +1146,15 @@ static void parse_copy(void) {
   }
 
   cleanup:
+  /* Closing a file reports "OK", which must not hide what went wrong */
+  err = current_error;
+
   /* Close the buffers */
   srcbuf->cleanup(srcbuf);
   cleanup_and_free_buffer(dstbuf);
+
+  if (err != 0 && current_error == 0)
+    set_error(err);
 }
 
 

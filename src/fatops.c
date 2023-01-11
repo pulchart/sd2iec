@@ -468,7 +468,7 @@ static uint8_t write_data(buffer_t *buf) {
   res = f_write(&buf->pvt.fat.fh, buf->data+2, buf->lastused-1, &byteswritten);
   if (res != FR_OK) {
     uart_putc('r');
-    parse_error(res,1);
+    parse_error(res,0);
     f_close(&buf->pvt.fat.fh);
     free_buffer(buf);
     return 1;
@@ -578,7 +578,7 @@ uint8_t fat_file_seek(buffer_t *buf, uint32_t position, uint8_t index) {
   if (buf->pvt.fat.fh.fsize >= pos) {
     FRESULT res = f_lseek(&buf->pvt.fat.fh, pos);
     if (res != FR_OK) {
-      parse_error(res,0);
+      parse_error(res,1);
       f_close(&buf->pvt.fat.fh);
       free_buffer(buf);
       return 1;
@@ -1257,7 +1257,7 @@ static uint8_t fat_getvolumename(uint8_t part, uint8_t *label) {
   res = l_opendir(&partition[part].fatfs, 0, &dh);
 
   if (res != FR_OK) {
-    parse_error(res,0);
+    parse_error(res,1);
     return 1;
   }
 
@@ -1333,7 +1333,7 @@ uint8_t fat_getdirlabel(path_t *path, uint8_t *label) {
     return 0;
 
 gl_error:
-  parse_error(res,0);
+  parse_error(res,1);
   return 1;
 }
 
@@ -1731,14 +1731,14 @@ uint8_t image_write(uint8_t part, DWORD offset, void *buffer, uint16_t bytes, ui
   if (offset != (DWORD)-1) {
     res = f_lseek(&partition[part].imagehandle, offset);
     if (res != FR_OK) {
-      parse_error(res,0);
+      parse_error(res,1);
       return 2;
     }
   }
 
   res = f_write(&partition[part].imagehandle, buffer, bytes, &byteswritten);
   if (res != FR_OK) {
-    parse_error(res,1);
+    parse_error(res,0);
     return 2;
   }
 

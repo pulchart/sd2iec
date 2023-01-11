@@ -837,8 +837,15 @@ void file_open(uint8_t secondary) {
   /* Assume everything will go well unless proven otherwise */
   set_error(ERROR_OK);
 
-  /* Strip 0x0d characters from end of name (C2BD-C2CA) */
-  if (command_length > 1) {
+  /* Strip 0x0d characters from end of name (C2BD-C2CA).
+   * Exception: a REL open ends in ",L,<reclen>", where <reclen> is the last
+   * byte and may legitimately be 0x0d (record length 13). Detect that pattern
+   * ("L," directly before the last byte) and keep the reclen; otherwise the
+   * record length is lost and e.g. "NAME,L,"+CHR$(13) cannot create the file. */
+  if (command_length > 1 &&
+      !(command_length >= 3 &&
+        command_buffer[command_length-2] == ',' &&
+        command_buffer[command_length-3] == 'L')) {
     if (command_buffer[command_length-1] == 0x0d)
       command_length -= 1;
     else if (command_buffer[command_length-2] == 0x0d)
@@ -1014,6 +1021,7 @@ void file_open(uint8_t secondary) {
     if (res == 0) {
       /* Match found */
       if (command_buffer[0] == '@') {
+        uint8_t res2;
         /* Make sure there is a free buffer to open the new file later */
         if (!check_free_buffers()) {
           set_error(ERROR_NO_CHANNEL);
@@ -1024,8 +1032,14 @@ void file_open(uint8_t secondary) {
         cbmdirent_t dentcopy = dent;
 
         /* Rewrite existing file: Delete the old one */
-        if (file_delete(&path, &dentcopy) == 255)
+
+        res2 = file_delete(&path, &dentcopy);
+        if (res2 == 255)
           return;
+        if (res2 == 0) {
+           set_error(ERROR_WRITE_PROTECT);
+           return;
+        }
 
 #ifdef CONFIG_M2I
         /* Force fatops to create a new name based on the (long) CBM- */
@@ -1033,6 +1047,11 @@ void file_open(uint8_t secondary) {
         if (dent.opstype == OPSTYPE_FAT || dent.opstype == OPSTYPE_FAT_X00)
           dent.pvt.fat.realname[0] = 0;
 #endif
+        if (!ustrchr(fname, '*') && !ustrchr(fname, '?') && (*fname != 160))
+        {
+           memset(&dent, 0, sizeof(dent));
+           ustrncpy(dent.name, fname, CBM_NAME_LENGTH);
+        }
       } else {
         /* Write existing file without replacement: Raise error */
         set_error(ERROR_FILE_EXISTS);
@@ -1041,6 +1060,14 @@ void file_open(uint8_t secondary) {
     } else {
       /* Normal write or non-existing rewrite */
       /* Doesn't exist: Copy name to dent */
+      if (ustrchr(fname, '*') || ustrchr(fname, '?'))
+      {
+         if (command_buffer[0] == '@')
+            set_error(64);
+         else
+            set_error(33);
+         return;
+      }
       memset(&dent, 0, sizeof(dent));
       ustrncpy(dent.name, fname, CBM_NAME_LENGTH);
       set_error(ERROR_OK); // because first_match has set FNF
