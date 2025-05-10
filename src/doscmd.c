@@ -275,6 +275,7 @@ static const PROGMEM struct fastloader_crc_s fl_crc_table[] = {
   { 0x5088, FL_KRILL_SLEEP,      RXTX_NONE          }, // r164
   { 0x1fdc, FL_SPINDLE_SLEEP,    RXTX_NONE          },
   { 0x955d, FL_BITFIRE_SLEEP,    RXTX_NONE          },
+  { 0xb20a, FL_TRANSWARP_SLEEP,  RXTX_NONE          },
 #endif
 #ifdef CONFIG_LOADER_BOOZE
   { 0x0c48, FL_BOOZE,            RXTX_NONE          },
@@ -387,6 +388,7 @@ static const PROGMEM struct fastloader_handler_s fl_handler_table[] = {
   { 0x020b, FL_NONE,             bus_sleep_krill,  1 }, // >= r192 ATN responder
   { 0x0403, FL_SPINDLE_SLEEP,    bus_sleep,        0 },
   { 0x0205, FL_BITFIRE_SLEEP,    bus_sleep,        0 },
+  { 0x030d, FL_TRANSWARP_SLEEP,  bus_sleep,        0 },
 #endif
 #if defined(CONFIG_LOADER_KRILL) || defined(CONFIG_BUS_SILENCE_REQ)
   { 0x0205, FL_NONE,             drvchkme_krill,   1 }, //  < r192 drvchkme

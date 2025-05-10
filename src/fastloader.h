@@ -99,6 +99,7 @@ typedef enum {
   FL_SPARKLE_15,
   FL_SPARKLE_20,
   FL_SPARKLE_21,
+  FL_TRANSWARP_SLEEP,
 } fastloaderid_t;
 
 typedef struct {
