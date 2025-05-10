@@ -824,7 +824,9 @@ void iec_mainloop(void) {
       /* commit BAM buffers and errorcache */
       d64_commit();
 
-      iec_data.bus_state = BUS_IDLE;
+      /* Enter idle state unless the command requested bus sleep */
+      if (iec_data.bus_state != BUS_SLEEP)
+        iec_data.bus_state = BUS_IDLE;
       break;
     }
   }

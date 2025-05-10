@@ -86,8 +86,7 @@ uint8_t check_keys(void) {
 #ifdef CONFIG_BUS_SILENCE_REQ
 /* ATN silence */
 bool bus_sleep(UNUSED_PARAMETER) {
-  /* request sleep mode */
-  set_key(KEY_SLEEP);
+  iec_data.bus_state = BUS_SLEEP;
 
   /* we don't want the detected ATN-responder to persist */
   detected_loader = FL_NONE;
