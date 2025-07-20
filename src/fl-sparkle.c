@@ -56,6 +56,12 @@
 /* in the two "Median" releases with a value of 2.       */
 #define SKEW          2
 
+/* hashes of bootstrap code used by the various loader versions*/
+#define BOOTSTRAP_10  0x656f
+#define BOOTSTRAP_15  0x36fe
+#define BOOTSTRAP_2x  0x1874
+#define BOOTSTRAP_3x  0x6b82
+
 /* offset of the bundle count offset in the BAM sector (1.x only) */
 #define BNDCNT_OFFS   0xfe
 
@@ -84,6 +90,7 @@ static const PROGMEM uint8_t param_layouts[][NUM_PARAMS] = {
   {  0xff,  0xfd,  0x00,  0xf8,  0xfa,  0xfb,  0xfc,  0x00  }, // FL_SPARKLE_15
   {  0xff,  0xfe,  0xf4,  0xf9,  0xfb,  0xfc,  0xfd,  0xf1  }, // FL_SPARKLE_20
   {  0xff,  0xfb,  0xf9,  0xfa,  0xfc,  0xfd,  0xfe,  0xf6  }, // FL_SPARKLE_21
+  {  0xff,  0xfb,  0x00,  0xfa,  0xfc,  0xfd,  0xfe,  0xf7  }, // FL_SPARKLE_32
 };
 
 /* ids of productions that need special treatment:    */
@@ -326,45 +333,61 @@ static uint8_t init_disk(session_t *s) {
     /* (controls the parameter layout) and the byte encoding are */
     /* are deduced from suitable byte values in this sector.     */
     if (detected_loader == FL_NONE) {
-      switch (s->dir_buf->data[0xf9] & 0xc0) {
-        case 0x00: // <= 2.0
-          /* for 1.x [0xf8] == -[0xf9] (IL0R / IL0) (or == 0 for 1.0) */
-          i = s->dir_buf->data[0xf8];
+      /* 3.2 uses the same bootstrap code as 3.0 and 3.1, but a */
+      /* different parameter layout. Plus $f9 is part of the    */
+      /* prod id and therefore can't be used for detection.     */
+      if (datacrc != BOOTSTRAP_3x) {
+        switch (s->dir_buf->data[0xf9] & 0xc0) {
+          case 0x00: // <= 2.0
+            /* for 1.x [0xf8] == -[0xf9] (IL0R / IL0) (or == 0 for 1.0) */
+            i = s->dir_buf->data[0xf8];
 
-          if (i == (uint8_t)-s->dir_buf->data[0xf9]) {
-            /* 1.x layout, no encoding */
-            s->decode_byte = identity;
+            if (i == (uint8_t)-s->dir_buf->data[0xf9]) {
+              /* 1.x layout, no encoding */
+              s->decode_byte = identity;
 
-            if (i != 0) { // valid interleave?
-              detected_loader = FL_SPARKLE_15;
-            } else {
-              /* 1.0 has no custom interleave, use default values */
-              detected_loader = FL_SPARKLE_10;
-              s->interleave[0] = 4;
-              s->interleave[1] = 3;
-              s->interleave[2] = 3;
-              s->interleave[3] = 3;
+              if (i != 0) { // valid interleave?
+                detected_loader = FL_SPARKLE_15;
+              } else {
+                /* 1.0 has no custom interleave, use default values */
+                detected_loader = FL_SPARKLE_10;
+                s->interleave[0] = 4;
+                s->interleave[1] = 3;
+                s->interleave[2] = 3;
+                s->interleave[3] = 3;
+              }
+            } else { // 2.0 layout
+              detected_loader = FL_SPARKLE_20;
+              if ((s->dir_buf->data[0xfe] & 0xc0) == 0xc0) { // 2.0 encoding
+                /* we don't expect a side id >= 0x10 */
+                s->decode_byte = decode_byte_20;
+              } else { // 2.1FF encoding (Padawan's Awakening)
+                s->decode_byte = decode_byte_21ff;
+              }
             }
-          } else { // 2.0 layout
+            break;
+          case 0x80: // 2.0 layout, 2.1 encoding
             detected_loader = FL_SPARKLE_20;
-            if ((s->dir_buf->data[0xfe] & 0xc0) == 0xc0) { // 2.0 encoding
-              /* we don't expect a side id >= 0x10 */
-              s->decode_byte = decode_byte_20;
-            } else { // 2.1FF encoding (Padawan's Awakening)
-              s->decode_byte = decode_byte_21ff;
-            }
-          }
-          break;
-        case 0x80: // 2.0 layout, 2.1 encoding
-          detected_loader = FL_SPARKLE_20;
-          s->decode_byte  = decode_byte_21;
-          break;
-        case 0x40: // 2.1 layout, 2.1 encoding
+            s->decode_byte  = decode_byte_21;
+            break;
+          case 0x40: // 2.1 layout, 2.1 encoding
+            detected_loader = FL_SPARKLE_21;
+            s->decode_byte  = decode_byte_21;
+            break;
+          default:
+            return 1;
+        }
+      } else { // 3.x
+        /* all 3.x versions use the new encoding */
+        s->decode_byte = decode_byte_21;
+
+        /* Detect < 3.2 by checking for expected saver */
+        /* flag values and assumption that P2 is != 0. */
+        if ((s->dir_buf->data[0xf9] & 0x7d) == 0x7d && s->dir_buf->data[0xf6]) {
           detected_loader = FL_SPARKLE_21;
-          s->decode_byte  = decode_byte_21;
-          break;
-        default:
-          return 1;
+        } else { // looks like 3.2
+          detected_loader = FL_SPARKLE_32;
+        }
       }
 
       i = pgm_read_byte(&param_layouts[detected_loader-FL_SPARKLE_10][PRODID]);
@@ -521,8 +544,10 @@ static uint8_t send_bundle(session_t *s, uint8_t bundle) {
       if (--s->bundle_len == 0) {
         eob = true; // exit to main loop after this block
 
-        s->bundle_len = s->decode_byte(buf->data[1]);
-        buf->data[1] = 0;
+        /*  bundle length */
+        i = detected_loader < FL_SPARKLE_32 ? 0x01 : 0xff;
+        s->bundle_len = s->decode_byte(buf->data[i]);
+        buf->data[i] = 0;
 
         if (bundle & 0x7f) { // first block of a random bundle != 0
           buf->data[0x00] = 0;
@@ -606,10 +631,10 @@ bool load_sparkle(UNUSED_PARAMETER) {
   uint8_t   bundle;
 
   datacrc = command_crc(5, 0);
-  if ((command_length != 0x28 || datacrc != 0x6b82) && // 3.1
-      (command_length != 0x22 || datacrc != 0x1874) && // 2.x
-      (command_length != 0x28 || datacrc != 0x36fe) && // 1.5
-      (command_length != 0x23 || datacrc != 0x656f)) { // 1.0
+  if ((command_length != 0x28 || datacrc != BOOTSTRAP_3x) &&
+      (command_length != 0x22 || datacrc != BOOTSTRAP_2x) &&
+      (command_length != 0x28 || datacrc != BOOTSTRAP_15) &&
+      (command_length != 0x23 || datacrc != BOOTSTRAP_10)) {
       return false;
   }
 
