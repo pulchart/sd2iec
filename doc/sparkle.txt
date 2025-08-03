@@ -16,7 +16,7 @@ Loader Revisions
 Various revisions have been publicly released, but only revisions
 1.0 and >= 1.5 seem to be actually used by any production.
 
-1.0 is only used by OMG Got Balls! [065] and that doesn't even seem to
+1.0 is only used by OMG Got Balls! [067] and that doesn't even seem to
 really use the code released as 1.0, but some pre-release version.
 
 1.0     https://csdb.dk/release/?id=183006
@@ -34,6 +34,7 @@ really use the code released as 1.0, but some pre-release version.
 
 git     https://github.com/spartaomg/Sparkle.git
         https://github.com/spartaomg/Sparkle2.git
+        https://github.com/spartaomg/SparkleCPP.git
 
 The 1.x revisions only load and transfer a number of predefined files
 (called "bundles") in fixed order. All 256 bytes of a sector are used
@@ -88,7 +89,7 @@ command:
        | 0x300 | 0x400 | 0x500 | 0x600 | 0x700
 -------|-------|-------|-------|-------|-------
    1.x |  $02  |  $06  |  $0a  |  $0e  |  $12
->= 2.x |  $0b  |  $0c  |  $0d  |  $10* |  $0f
+>= 2.0 |  $0b  |  $0c  |  $0d  |  $10* |  $0f
 
 *) sector data is encoded (see "Byte Encoding & Sector Layout",
    below).
@@ -106,7 +107,7 @@ more than one bundle. The number of sectors in the next bundle is
 stored either at offset $01 (most loader revisions) or offset $ff
 (only 1.0) of this boundary sector (sector $00 for the first bundle).
 
-Revisions >= 2.x support random requests using up to 2 directory
+Revisions >= 2.0 support random requests using up to 2 directory
 sectors ($11 & $12) on track 18, with 4 bytes per entry, for a
 maximum of 128 entries (as the sector walk algorithm doesn't care
 about files, there could be more files, but then only the 128 included
@@ -117,7 +118,7 @@ below).
 Byte Encoding & Sector Layout
 -----------------------------
 
-Revisions >= 2.x prepare the data for transfer during GCR-decoding.
+Revisions >= 2.0 prepare the data for transfer during GCR-decoding.
 Bits are shuffled/inverted and bytes are stored in reverse order (byte
 $00 at offset $00, byte $01 at offset $ff ... byte $ff at offset $01).
 
@@ -147,7 +148,7 @@ The byte encoding and sector layout differs between loader revisions
 >= 2.1 | 76540213 | $7f | reversed
 
 As a special case, the 2.1 pre-release revision used by Padawan's
-Awakening [056] uses the 2.1 byte encoding, but an eor value of $ff.
+Awakening [058] uses the 2.1 byte encoding, but an eor value of $ff.
 
 Sector Chains
 -------------
@@ -184,10 +185,10 @@ chain are calculated using the following recipe:
       if next_sector < 0:
         next_sector = next_sector + number_of_sectors_on_current_track
 
-- Sector skew is only used in Median [050]/[053] (both with an offset
+- Sector skew is only used in Median [052]/[055] (both with an offset
   value of 2).
 - The sector is set to 0 after every track change only in Padawan's
-  Awakening [056].
+  Awakening [058].
 
 Loader Parameters
 -----------------
@@ -213,13 +214,13 @@ The interleave is stored as the negative (2s-complement) value. Only
 revisions >= 1.3 actually have configurable interleave values, earlier
 versions use a fixed interleave of [4 3 3 3].
 
-Note that the parameter values of revisions >= 2.x are stored on disk
+Note that the parameter values of revisions >= 2.0 are stored on disk
 pre-encoded (see "Byte Encoding & Sector Layout", above).
 
 Random Access
 -------------
 
-Only revisions >= 2.x have a directory and therefore can randomly
+Only revisions >= 2.0 have a directory and therefore can randomly
 access bundles. The 1.x versions all just load in a fixed sequence
 starting from sector $01/$00 until all bundles (as indicated by the
 "bundle count" parameter; see "Loader Parameters", above) have been
@@ -240,7 +241,7 @@ the track which have already been used, so the real first sector of
 the bundle has to be calculated by iterating that number of sectors
 starting from the sector in the directory entry.
 
-For example, on the first disk of E2IRA [043] the directory entry for
+For example, on the first disk of E2IRA [045] the directory entry for
 the second bundle is [$04 $01 $0e $3a]. So the bundle starts on track
 $04, the first sector used on that track after the track change from
 track $03 was $01 and as track $04 has $15 sectors, $15-$0e = $07
@@ -272,7 +273,7 @@ ATN is always set between transfers. The host releases CLK when it's
 ready to receive, the drive sets DATA while busy and sets CLK when
 ready to send.
 
->= 2.x
+>= 2.0
 ------
 
 ATN is always set between transfers. While busy, the host also sets
@@ -300,7 +301,7 @@ after its first block has been transferred (see "Highscore Saver",
 below).
 
 Note that some 2.0 pre-release loader revisions (known productions
-using them are Memento Mori [063] and all known reMETA releases) send
+using them are Memento Mori [065] and all known reMETA releases) send
 the bundle/command byte inverted.
 
 File Transfer
@@ -311,13 +312,13 @@ will set DATA, as ATN is still set). The transfer then uses the 2-bit
 send protocol starting at the next positive ATN edge, like all other
 revisions.
 
-2.x loader revisions modify the data of each bundle's first block
+Loader revisions >= 2.0 modify the data of each bundle's first block
 before it is transferred:
 
-- The byte at offset $01 (3.2: $ff) (the bundle length) is set to $00.
+- The bundle length is set to 0.
 - For randomly accessed bundles only, the byte at offset $00 is set to
-  0 and the byte at offset $ff is set to the "buffer pointer" value of
-  the requested bundle's directory entry (see "Random Access", above).
+  0 and the pointer to the first byte to the respective value from the
+  requested bundle's directory entry (see "Random Access", above).
 
 Disk Change
 -----------
@@ -326,7 +327,7 @@ When the 1.x revisions transferred all bundles as indicated by the
 "bundle count" parameter value (see "Loader Parameters", above) it
 initiates a disk change waiting for the "next id" if it is not zero.
 
-In revisions >= 2.x there are two ways to initiate the disk change
+In revisions >= 2.0 there are two ways to initiate the disk change
 handling:
 
 - Bundle length of the current bundle is 0. This either triggers a
@@ -337,35 +338,50 @@ handling:
   number (exception is bundle number $ff, which also triggers a drive
   reset).
 
+Custom Drivecode Plugins
+------------------------
+
+In versions >= 3.2, bit 6 set in the track number field in a bundle's
+dir entry indicates that this is a custom drivecode plugin. Multiple
+such bundles can exist.
+
+Only the first block of the respective bundle is sent to the host, the
+drive code is only read into the sector buffer and the plugin then
+activated by executing the code from there.
+
+In the sd2iec implementation, the only supported custom drivecode
+plugin the highscore saver.
+
 Highscore Saver
 ---------------
 
-If the "saver" parameter flag (see "Loader Parameter", above) of the
-current disk indicates that the highscore saver is present, the bundle
-numbers $7e and $7f refer to the saver code and save file data
-bundles, respectively.
+For revisions >= 3.2, the highscore saver plugin is activated using
+the generic custom drivecode handling, as outlined above.
 
-The highscore saver can only handle one file and it has to fit on the
-last used track together with the saver code bundle, which consists
-of two blocks: The first block is the host code, the second block is
-the drive code.
+Earlier versions (>= 2.0) instead use a specific parameter flag (see
+"Loader Parameter", above), which indicates that a highscore saver is
+present on the current disk. If so, the bundle numbers $7e and $7f
+refer to the saver code and save file data bundles, respectively.
 
-The data file can be accessed like any other bundle. A request for
-the code bundle is special, only the host code from first block is
-sent to the host, the drive code is only read into the sector buffer
-and the saver mode then activated by executing the code from there.
+This special bundle basically works the same as the new, more generic
+plugin handling, but as it uses fixed bundle numbers, there can only
+be one save file.
 
-This mode uses a similar request loop like for bundle requests, except
-that the byte sent is just a flag which indicates if a data block
-follows (!= 0) or a zero as the end marker, after all data was
-transferred.
+The data bundle is located in the sector chain directly following the
+plugin bundle and also has its bundle number +1. It can be read using
+this bundle nuber, like any other bundle.
+
+After the plugin has been activated, it uses a similar request loop
+like for bundle requests, except that the byte sent is just a flag
+which indicates if a data block follows (!= 0) or a zero as the end
+marker, after all data was transferred.
 
 The payload for each block is transferred using the 1-bit receive
 protocol and written to the sectors found using the standard iteration
 algorithm (see "Sector Chains", above).
 
-Known Productions using this Loader (as of July 2025)
-=====================================================
+Known Productions using this Loader (as of August 2025)
+=======================================================
 
 Note: The table below is compiled from releases on CSDb crediting
       Sparta for the loader. It might not be complete and productions
@@ -380,69 +396,71 @@ Reference:
 
 Ref | Title                              |  CSDb  |  Rev  |  Enc  | N
 ----|------------------------------------|--------|-------|-------|---
-000 | Wavemode                           | 254707 |  3.2  |  2.1  |
-001 | Dreams Remain                      | 252086 |  2.1  |  2.1  |
-002 | Invasion Anarchy V1.1              | 251998 |  2.1  |  2.1  | S
-003 | Invasion Anarchy                   | 251380 |  2.1  |  2.1  | S
-004 | fünfzig 90%                        | 250421 |  2.1  |  2.1  |
-005 | The Pretzelves                     | 248563 |  2.1  |  2.1  | S
-006 | Propaganda #35                     | 246003 |  2.1  |  2.1  | S4
-007 | A három nyúl                       | 245962 |  2.1  |  2.1  |
-008 | 3SIRA                              | 245148 |  2.1  |  2.1  |
-009 | A.I. LOVE YOU                      | 244933 |  2.1  |  2.1  |
-010 | reMETA #19                         | 244155 | 2.0pr |  2.0  |
-011 | C64GFX.com CharSet Logo Compo 2... | 243331 |  2.1  |  2.1  |
-012 | reMETA #18                         | 243285 | 2.0pr |  2.0  |
-013 | Propaganda #34                     | 238775 |  2.1  |  2.1  | S
-014 | Ewe Woz 'Ere DX 1.3                | 236895 |  2.1  |  2.1  | S
-015 | reMETA #17                         | 235443 | 2.0pr |  2.0  |
-016 | Best on CRT with Demonote          | 235320 |  2.1  |  2.1  |
-017 | The Machine                        | 235319 |  2.1  |  2.1  |
-018 | reMETA #16                         | 233824 | 2.0pr |  2.0  |
-019 | Bright Side Dark Side              | 233786 |  2.1  |  2.1  |
-020 | reMETA #15                         | 233198 | 2.0pr |  2.0  |
-021 | Event Zero Trailer                 | 232983 |  2.1  |  2.1  |
-022 | No Bounds                          | 232957 |  2.1  |  2.1  |
-023 | reMETA #14                         | 231492 | 2.0pr |  2.0  |
-024 | Rest In Peace HIC                  | 229857 |  2.1  |  2.1  |
-025 | Propaganda #33                     | 228879 |  2.1  |  2.1  | S
-026 | Sweet Sixteen                      | 228540 |  1.5  |       |
-027 | Do Pretzels Dream?                 | 226669 |  2.0  |  2.0  |
-028 | Purple                             | 226025 |  2.1  |  2.1  |
-029 | Sabre Wulf Remastered Preview (... | 225069 |  2.0  |  2.1  | 4
-030 | FatZooMania                        | 225045 |  1.5  |       |
-031 | All Hallows' Eve                   | 225023 |  2.1  |  2.1  |
-032 | reMETA #13                         | 222246 | 2.0pr |  2.0  |
-033 | F20                                | 221934 |  2.1  |  2.1  |
-034 | Best on CRT                        | 221932 |  2.1  |  2.1  |
-035 | 30+                                | 221141 |  2.1  |  2.1  |
-036 | Propaganda #32                     | 220069 |  2.1  |  2.1  | S4
-037 | reMETA #12                         | 219454 | 2.0pr |  2.0  |
-038 | Starfleet Academy                  | 219301 |  2.1  |  2.1  |
-039 | Sidelined 2                        | 219299 |  2.1  |  2.1  |
-040 | XXX+I                              | 219297 |  2.1  |  2.1  |
-041 | reMETA #11                         | 218433 | 2.0pr |  2.0  |
-042 | I Adore My 64=                     | 218362 |  2.1  |  2.1  |
-043 | E2IRA                              | 218343 |  2.1  |  2.1  |
-044 | Munchkin 64                        | 217475 |  2.1  |  2.1  | S
-045 | Propaganda #31                     | 216359 |  2.1  |  2.1  | S
-046 | Partypopper                        | 216277 |  1.5  |       |
-047 | The C64 Grand Tour Challenge Mu... | 215035 |  2.1  |  2.1  |
-048 | Sprite Spirit                      | 214861 |  2.1  |  2.1  |
-049 | The C64 Grand Tour Challenge Mu... | 213591 |  2.1  |  2.1  |
-050 | Median (Final)                     | 212308 |  2.0  |  2.1  |
-051 | Propaganda #30                     | 211249 |  2.0  |  2.1  | S4
-052 | reMETA #10                         | 209216 | 2.0pr |  2.0  |
-053 | Median                             | 208412 |  2.0  |  2.1  |
-054 | XXX                                | 207188 |  2.0  |  2.0  |
-055 | reMETA #9                          | 205624 | 2.0pr |  2.0  |
-056 | Padawans' Awakening                | 205525 |  2.0  | 2.1ff |
-057 | Balls Might Touch                  | 203383 |  1.5  |       |
-058 | Fjortis!                           | 202474 |  1.5  |       |
-059 | We Love to Party                   | 202472 |  2.0  |  2.0  |
-060 | Christmas Megademo                 | 198283 |  2.0  |  2.0  |
-061 | reMETA #8                          | 196409 | 2.0pr |  2.0  |
-062 | Gamertro                           | 195843 |  1.5  |       |
-063 | Memento Mori                       | 195841 | 2.0pr |  2.0  |
-064 | 5 Shades of Grey                   | 192912 |  1.5  |       |
-065 | OMG Got Balls!                     | 175653 |  1.0  |       |
+000 | Propaganda #36                     | 255058 |  3.2  |  2.1  | S4
+001 | Nightworks                         | 254879 |  2.1  |  2.1  |
+002 | Wavemode                           | 254707 |  3.2  |  2.1  |
+003 | Dreams Remain                      | 252086 |  2.1  |  2.1  |
+004 | Invasion Anarchy V1.1              | 251998 |  2.1  |  2.1  | S
+005 | Invasion Anarchy                   | 251380 |  2.1  |  2.1  | S
+006 | fünfzig 90%                        | 250421 |  2.1  |  2.1  |
+007 | The Pretzelves                     | 248563 |  2.1  |  2.1  | S
+008 | Propaganda #35                     | 246003 |  2.1  |  2.1  | S4
+009 | A három nyúl                       | 245962 |  2.1  |  2.1  |
+010 | 3SIRA                              | 245148 |  2.1  |  2.1  |
+011 | A.I. LOVE YOU                      | 244933 |  2.1  |  2.1  |
+012 | reMETA #19                         | 244155 | 2.0pr |  2.0  |
+013 | C64GFX.com CharSet Logo Compo 2... | 243331 |  2.1  |  2.1  |
+014 | reMETA #18                         | 243285 | 2.0pr |  2.0  |
+015 | Propaganda #34                     | 238775 |  2.1  |  2.1  | S
+016 | Ewe Woz 'Ere DX 1.3                | 236895 |  2.1  |  2.1  | S
+017 | reMETA #17                         | 235443 | 2.0pr |  2.0  |
+018 | Best on CRT with Demonote          | 235320 |  2.1  |  2.1  |
+019 | The Machine                        | 235319 |  2.1  |  2.1  |
+020 | reMETA #16                         | 233824 | 2.0pr |  2.0  |
+021 | Bright Side Dark Side              | 233786 |  2.1  |  2.1  |
+022 | reMETA #15                         | 233198 | 2.0pr |  2.0  |
+023 | Event Zero Trailer                 | 232983 |  2.1  |  2.1  |
+024 | No Bounds                          | 232957 |  2.1  |  2.1  |
+025 | reMETA #14                         | 231492 | 2.0pr |  2.0  |
+026 | Rest In Peace HIC                  | 229857 |  2.1  |  2.1  |
+027 | Propaganda #33                     | 228879 |  2.1  |  2.1  | S
+028 | Sweet Sixteen                      | 228540 |  1.5  |       |
+029 | Do Pretzels Dream?                 | 226669 |  2.0  |  2.0  |
+030 | Purple                             | 226025 |  2.1  |  2.1  |
+031 | Sabre Wulf Remastered Preview (... | 225069 |  2.0  |  2.1  | 4
+032 | FatZooMania                        | 225045 |  1.5  |       |
+033 | All Hallows' Eve                   | 225023 |  2.1  |  2.1  |
+034 | reMETA #13                         | 222246 | 2.0pr |  2.0  |
+035 | F20                                | 221934 |  2.1  |  2.1  |
+036 | Best on CRT                        | 221932 |  2.1  |  2.1  |
+037 | 30+                                | 221141 |  2.1  |  2.1  |
+038 | Propaganda #32                     | 220069 |  2.1  |  2.1  | S4
+039 | reMETA #12                         | 219454 | 2.0pr |  2.0  |
+040 | Starfleet Academy                  | 219301 |  2.1  |  2.1  |
+041 | Sidelined 2                        | 219299 |  2.1  |  2.1  |
+042 | XXX+I                              | 219297 |  2.1  |  2.1  |
+043 | reMETA #11                         | 218433 | 2.0pr |  2.0  |
+044 | I Adore My 64=                     | 218362 |  2.1  |  2.1  |
+045 | E2IRA                              | 218343 |  2.1  |  2.1  |
+046 | Munchkin 64                        | 217475 |  2.1  |  2.1  | S
+047 | Propaganda #31                     | 216359 |  2.1  |  2.1  | S
+048 | Partypopper                        | 216277 |  1.5  |       |
+049 | The C64 Grand Tour Challenge Mu... | 215035 |  2.1  |  2.1  |
+050 | Sprite Spirit                      | 214861 |  2.1  |  2.1  |
+051 | The C64 Grand Tour Challenge Mu... | 213591 |  2.1  |  2.1  |
+052 | Median (Final)                     | 212308 |  2.0  |  2.1  |
+053 | Propaganda #30                     | 211249 |  2.0  |  2.1  | S4
+054 | reMETA #10                         | 209216 | 2.0pr |  2.0  |
+055 | Median                             | 208412 |  2.0  |  2.1  |
+056 | XXX                                | 207188 |  2.0  |  2.0  |
+057 | reMETA #9                          | 205624 | 2.0pr |  2.0  |
+058 | Padawans' Awakening                | 205525 |  2.0  | 2.1ff |
+059 | Balls Might Touch                  | 203383 |  1.5  |       |
+060 | Fjortis!                           | 202474 |  1.5  |       |
+061 | We Love to Party                   | 202472 |  2.0  |  2.0  |
+062 | Christmas Megademo                 | 198283 |  2.0  |  2.0  |
+063 | reMETA #8                          | 196409 | 2.0pr |  2.0  |
+064 | Gamertro                           | 195843 |  1.5  |       |
+065 | Memento Mori                       | 195841 | 2.0pr |  2.0  |
+066 | 5 Shades of Grey                   | 192912 |  1.5  |       |
+067 | OMG Got Balls!                     | 175653 |  1.0  |       |

@@ -455,7 +455,7 @@ static uint8_t init_disk(session_t *s) {
 /* payload data, writes it to disk and iterates to the next sector.  */
 static uint8_t handle_save(session_t *s) {
   buffer_t *buf;
-  uint8_t  i;
+  uint8_t  i, step;
 
   if (s->remaining == 0) // no blocks left on track; should not happen
     return 1;
@@ -468,13 +468,14 @@ static uint8_t handle_save(session_t *s) {
 
   set_data(0);
 
-  /* payload bytes are sent in reverse order, starting at offset 0 */
+  /* < 3.2 sends in reverse order */
+  step = detected_loader >= FL_SPARKLE_32 ? 1 : (uint8_t)-1;
   ATOMIC_BLOCK( ATOMIC_FORCEON ) {
-    for (i = 0;; i--) {
+    for (i = 0;; i += step) {
       buf->data[i] = clocked_read_byte(IEC_BIT_CLOCK, IEC_BIT_ATN, 90);
       if (has_timed_out())
         return 1;
-      if (i == 0x01)
+      if (i == (uint8_t)-step)
         break;
     }
 
@@ -487,6 +488,7 @@ static uint8_t handle_save(session_t *s) {
 
   /* The saver only operates on one (the last) track, */
   /* so no need to deal with track changes here.      */
+  // -> no longer true for 3.2, but not yet implemented.
   iterate_sector(s);
 
   return current_error != ERROR_OK;
@@ -504,6 +506,12 @@ static dir_entry_t *find_dir_entry(session_t *s, uint8_t bundle) {
   entry = (dir_entry_t *)(s->dir_buf->data) + (bundle & 0x3f);
   s->track  = entry->track;
   s->sector = entry->sector;
+
+  if ((s->track & 0x40) && detected_loader >= FL_SPARKLE_32) {
+    /* custom code plugin; assume highscore saver (fingers crossed!) */
+    s->track &= (uint8_t)~0x40; // clear flag bit in track field
+    s->save_active = 1;
+  }
   track_changed(s);
 
   /* track_changed() updated s->remaining for the new track */
@@ -544,14 +552,16 @@ static uint8_t send_bundle(session_t *s, uint8_t bundle) {
       if (--s->bundle_len == 0) {
         eob = true; // exit to main loop after this block
 
-        /*  bundle length */
+        /* bundle length */
         i = detected_loader < FL_SPARKLE_32 ? 0x01 : 0xff;
         s->bundle_len = s->decode_byte(buf->data[i]);
         buf->data[i] = 0;
 
         if (bundle & 0x7f) { // first block of a random bundle != 0
-          buf->data[0x00] = 0;
-          buf->data[0xff] = s->decode_byte(entry->bptr);
+          buf->data[0] = 0;
+          /* bptr */
+          i = detected_loader < FL_SPARKLE_32 ? 0xff : 0x01;
+          buf->data[i] = s->decode_byte(entry->bptr);
         }
       }
     } else { // 1.0; only OMG Got Balls!
@@ -668,7 +678,7 @@ bool load_sparkle(UNUSED_PARAMETER) {
           goto exit;
       }
 
-      /* 2.x only: check if the hosts requests a random bundle */
+      /* >= 2.x only: check if the host requests a random bundle */
       if (detected_loader >= FL_SPARKLE_20) {
         delay_us(2);
 
@@ -695,6 +705,8 @@ bool load_sparkle(UNUSED_PARAMETER) {
 
             /* disk flip; update next_id from "bundle" number */
             session.next_id = bundle & 0x7f;
+            if (detected_loader >= FL_SPARKLE_32)
+              session.next_id <<= 1; // NEXTID ist stored <<1 on >= 3.2
             goto disk_flip;
           }
         }
@@ -734,15 +746,16 @@ disk_flip:
       }
 
       /* enter save mode if the saver bundle was requested */
-      if (bundle == SAVER_BUNDLE && session.has_saver) {
-        /* Look up the first sector of the save file. This probably  */
-        /* isn't necessary, as it should always start at the sector  */
-        /* following the code bundle, so we could just iterate       */
-        /* instead, but better not risk writing to the wrong blocks. */
+      /* for now 3.2 still only accepts bundles 0x7e/0x7f  */
+      if (bundle == SAVER_BUNDLE &&
+          (session.has_saver || detected_loader >= FL_SPARKLE_32)) {
+        /* Look up the first sector of the save file. */
         if (find_dir_entry(&session, SAVE_FILE) == NULL)
           goto exit; // error
 
-        session.save_active = 1;
+        /* for >= 3.2 save_active is set by find_dir_entry() */
+        if (detected_loader < FL_SPARKLE_32)
+          session.save_active = 1;
       }
 
       bundle = SEQ_BUNDLE; // default unless a command is sent
