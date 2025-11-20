@@ -2137,11 +2137,14 @@ fs_send_byte:
 1:
         bst     r0, 7                                   ; 1
         bld     r20, IEC_OPIN_DATA                      ; 1
+        ;; force DATA low if ATN is set
+        sbis    _SFR_IO_ADDR(IEC_INPUT), IEC_PIN_ATN    ; 2/1
+        sbr     r20, IEC_OBIT_DATA                      ; 1
         out     _SFR_IO_ADDR(IEC_OUTPUT), r20           ; 1
         sbi     _SFR_IO_ADDR(SRQ_OUTPUT), IEC_OPIN_SRQ  ; 2
         delay_us 2, -3
         cbi     _SFR_IO_ADDR(SRQ_OUTPUT), IEC_OPIN_SRQ  ; 2
-        delay_us 3, -8
+        delay_us 3, -10
         lsl     r0                                      ; 1
         dec     r19                                     ; 1
         brne    1b                                      ; 2/1
@@ -2150,7 +2153,8 @@ fs_send_byte:
         sbi     _SFR_IO_ADDR(EIFR), IEC_SRQ_INT         ; 2
         out     _SFR_IO_ADDR(SREG), r21                 ; 1
 
-        ;; exit with DATA high
+        ;; exit with DATA high unless ATN is set
+        sbic    _SFR_IO_ADDR(IEC_INPUT), IEC_PIN_ATN
         cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
 
         ret
