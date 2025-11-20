@@ -2129,10 +2129,11 @@ fs_send_byte:
         com     r0
 
         ldi     r19, 8  ; bit counter
-        in      r20, _SFR_IO_ADDR(IEC_OUTPUT)
 
         in      r21, _SFR_IO_ADDR(SREG)
         cli
+
+        in      r20, _SFR_IO_ADDR(IEC_OUTPUT)
 1:
         bst     r0, 7                                   ; 1
         bld     r20, IEC_OPIN_DATA                      ; 1
