@@ -181,7 +181,7 @@ static int16_t iec_getc(void) {
     } else {
       /* Capture data on rising edge */
       do {                                             // EA0B
-        if ((iec_data.iecflags & FAST_SERIAL) && fs_byte_ready()) {
+        if (i == 0 && (iec_data.iecflags & FAST_SERIAL) && fs_byte_ready()) {
           /* we got a byte via fast serial, use it */
           val = fs_read_byte();
           goto done;
