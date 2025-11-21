@@ -123,33 +123,36 @@ static int16_t iec_getc(void) {
     if (iec_check_atn()) return -1;
   } while (!(iec_debounced() & IEC_BIT_CLOCK));
 
-  ATOMIC_BLOCK( ATOMIC_FORCEON ) {
-    set_data(1);                                         // E9D7
-    /* Wait until all other devices released the data line    */
-    while (!IEC_DATA) ;                                  // FF20
+  set_data(1);                                         // E9D7
+  /* Wait until all other devices released the data line    */
+  while (!IEC_DATA) ;                                  // FF20
 
-    /* Timer for EOI detection */
-    start_timeout(256);
+  set_tick_irq(0);
 
-    do {
-      if (iec_check_atn()) return -1;                    // E9DF
-      tmp = has_timed_out();                             // E9EE
-    } while ((iec_debounced() & IEC_BIT_CLOCK) && !tmp);
-  }
+  /* Timer for EOI detection */
+  start_timeout(256);
+
+  do {
+    if (iec_check_atn()) {                             // E9DF
+      val = -1;
+      goto abort;
+    }
+    tmp = has_timed_out();                             // E9EE
+  } while ((iec_debounced() & IEC_BIT_CLOCK) && !tmp);
 
   /* See if timeout happened -> EOI */
   if (tmp) {
     uart_putc('E');
 
-    ATOMIC_BLOCK( ATOMIC_FORCEON ) {
-      set_data(0);                                       // E9F2
-      delay_us(73);                       // E9F5-E9F8, delay calculated from all
-      set_data(1);                        //   instructions between IO accesses
-    }
+    set_data(0);                                       // E9F2
+    delay_us(73);                       // E9F5-E9F8, delay calculated from all
+    set_data(1);                        //   instructions between IO accesses
 
     do {
-      if (iec_check_atn())                             // E9FD
-        return -1;
+      if (iec_check_atn()) {                           // E9FD
+        val = -1;
+        goto abort;
+      }
     } while (iec_debounced() & IEC_BIT_CLOCK);
 
     iec_data.iecflags|=EOI_RECVD;                      // EA07
@@ -190,7 +193,10 @@ static int16_t iec_getc(void) {
     val = (val >> 1) | (!!(tmp & IEC_BIT_DATA) << 7);  // EA18
 
     do {                                               // EA1A
-      if (iec_check_atn()) return -1;
+      if (iec_check_atn()) {
+        val = -1;
+        goto abort;
+      }
     } while (iec_debounced() & IEC_BIT_CLOCK);
   }
 
@@ -198,6 +204,8 @@ done:
   delay_us(5); // Test
   set_data(0);                                         // EA28
   delay_us(50);  /* Slow down a little bit, may or may not fix some problems */
+abort:
+  set_tick_irq(1);
   return val;
 }
 
