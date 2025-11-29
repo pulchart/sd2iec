@@ -137,26 +137,18 @@ static int16_t iec_getc(void) {
       val = -1;
       goto abort;
     }
-    tmp = has_timed_out();                             // E9EE
-  } while ((iec_debounced() & IEC_BIT_CLOCK) && !tmp);
+    /* If timeout happened -> EOI */
+    if (has_timed_out()) {                             // E9EE
+      cancel_timeout();
+      uart_putc('E');
 
-  /* See if timeout happened -> EOI */
-  if (tmp) {
-    uart_putc('E');
+      set_data(0);                                     // E9F2
+      delay_us(73);                       // E9F5-E9F8, delay calculated from all
+      set_data(1);                        //   instructions between IO accesses
 
-    set_data(0);                                       // E9F2
-    delay_us(73);                       // E9F5-E9F8, delay calculated from all
-    set_data(1);                        //   instructions between IO accesses
-
-    do {
-      if (iec_check_atn()) {                           // E9FD
-        val = -1;
-        goto abort;
-      }
-    } while (iec_debounced() & IEC_BIT_CLOCK);
-
-    iec_data.iecflags|=EOI_RECVD;                      // EA07
-  }
+      iec_data.iecflags|=EOI_RECVD;                    // EA07
+    }
+  } while ((iec_debounced() & IEC_BIT_CLOCK));
 
   for (i=0;i<8;i++) {
     /* Check for JiffyDOS                                       */
