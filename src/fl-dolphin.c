@@ -107,6 +107,8 @@ int16_t dolphin_getc(void) {
  */
 /* DolphinDOS parallel byte transfer - A866 */
 uint8_t dolphin_putc(uint8_t data, uint8_t with_eoi) {
+  iec_bus_t bus;
+
   set_clock(1);
 
   /* wait until DATA is high */
@@ -116,9 +118,12 @@ uint8_t dolphin_putc(uint8_t data, uint8_t with_eoi) {
 
   if (with_eoi) {
     /* signal EOI by waiting for a pulse on DATA */
-    while (IEC_DATA)  // A87C
+    do { // A87C
+      bus = iec_bus_read();
+      delay_us(2);
       if (iec_check_atn())
         return -1;
+    } while (bus & IEC_BIT_DATA);
 
     while (!IEC_DATA) // A883
       if (iec_check_atn())
@@ -131,9 +136,12 @@ uint8_t dolphin_putc(uint8_t data, uint8_t with_eoi) {
   set_clock(0);
 
   /* wait until DATA is low */
-  while (IEC_DATA)    // A89A
+  do { // A89A
+    bus = iec_bus_read();
+    delay_us(2);
     if (iec_check_atn())
       return -1;
+  } while (bus & IEC_BIT_DATA);
 
   return 0;
 }

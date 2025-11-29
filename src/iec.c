@@ -290,8 +290,10 @@ static uint8_t iec_putc(uint8_t data, const uint8_t with_eoi) {
   }
 
   do {
-    if (iec_check_atn()) return -1;
-  } while (iec_debounced() & IEC_BIT_DATA);
+    i = iec_debounced();
+    if (iec_check_atn())
+      return -1;
+  } while (i & IEC_BIT_DATA);
 
   /* More stuff that's not in the original rom:
    *   Wait for 250us or until DATA is high or ATN is low.
