@@ -123,6 +123,9 @@ static int16_t iec_getc(void) {
     if (iec_check_atn()) return -1;
   } while (!(iec_debounced() & IEC_BIT_CLOCK));
 
+  /* clear potential cruft from the shift register */
+  fs_reset();
+
   set_data(1);                                         // E9D7
   /* Wait until all other devices released the data line    */
   while (!IEC_DATA) ;                                  // FF20
