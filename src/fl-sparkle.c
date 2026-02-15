@@ -60,7 +60,8 @@
 #define BOOTSTRAP_10  0x656f
 #define BOOTSTRAP_15  0x36fe
 #define BOOTSTRAP_2x  0x1874
-#define BOOTSTRAP_3x  0x6b82
+#define BOOTSTRAP_32  0x6b82
+#define BOOTSTRAP_33  0x8ad2
 
 /* offset of the bundle count offset in the BAM sector (1.x only) */
 #define BNDCNT_OFFS   0xfe
@@ -125,6 +126,7 @@ typedef struct session_s {
   int has_skew:1;     // loader version with sector skew (Median, Median final)
   int has_nsreset:1;  // start at sector 0 after track change (Propaganda 30)
   int bundle_inv:1;   // bundle number is sent inverted (Memento Mori, reMETA)
+  int full_subsct:1;  // sector-- after overflow on all tracks (>= 3.3)
 
   /* function pointers */
   uint8_t (*decode_byte)(uint8_t);
@@ -253,7 +255,8 @@ static void advance_sector(session_t *s, uint8_t ds) {
   if (s->sector >= s->num_sectors) { // overflow
     s->sector -= s->num_sectors;
 
-    if (s->track < 18 && s->sector > 0) // special case tracks 1 to 17
+    /* subsct tracks 1-17 <= 3.2, all tracks >= 3.3 */
+    if ((s->full_subsct || s->track < 18) && s->sector > 0)
       s->sector--;
   }
 }
@@ -336,7 +339,7 @@ static uint8_t init_disk(session_t *s) {
       /* 3.2 uses the same bootstrap code as 3.0 and 3.1, but a */
       /* different parameter layout. Plus $f9 is part of the    */
       /* prod id and therefore can't be used for detection.     */
-      if (datacrc != BOOTSTRAP_3x) {
+      if (datacrc != BOOTSTRAP_32 && datacrc != BOOTSTRAP_33) {
         switch (s->dir_buf->data[0xf9] & 0xc0) {
           case 0x00: // <= 2.0
             /* for 1.x [0xf8] == -[0xf9] (IL0R / IL0) (or == 0 for 1.0) */
@@ -385,8 +388,9 @@ static uint8_t init_disk(session_t *s) {
         /* flag values and assumption that P2 is != 0. */
         if ((s->dir_buf->data[0xf9] & 0x7d) == 0x7d && s->dir_buf->data[0xf6]) {
           detected_loader = FL_SPARKLE_21;
-        } else { // looks like 3.2
+        } else { // looks like >= 3.2
           detected_loader = FL_SPARKLE_32;
+          s->full_subsct  = datacrc != BOOTSTRAP_32;
         }
       }
 
@@ -641,7 +645,8 @@ bool load_sparkle(UNUSED_PARAMETER) {
   uint8_t   bundle;
 
   datacrc = command_crc(5, 0);
-  if ((command_length != 0x28 || datacrc != BOOTSTRAP_3x) &&
+  if ((command_length != 0x26 || datacrc != BOOTSTRAP_33) &&
+      (command_length != 0x28 || datacrc != BOOTSTRAP_32) &&
       (command_length != 0x22 || datacrc != BOOTSTRAP_2x) &&
       (command_length != 0x28 || datacrc != BOOTSTRAP_15) &&
       (command_length != 0x23 || datacrc != BOOTSTRAP_10)) {
@@ -706,7 +711,7 @@ bool load_sparkle(UNUSED_PARAMETER) {
             /* disk flip; update next_id from "bundle" number */
             session.next_id = bundle & 0x7f;
             if (detected_loader >= FL_SPARKLE_32)
-              session.next_id <<= 1; // NEXTID ist stored <<1 on >= 3.2
+              session.next_id <<= 1; // disk ids are stored <<1 on >= 3.2
             goto disk_flip;
           }
         }
