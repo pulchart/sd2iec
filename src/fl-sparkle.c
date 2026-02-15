@@ -692,7 +692,8 @@ bool load_sparkle(UNUSED_PARAMETER) {
             /* host didn't release CLK -> random load */
             set_data(0);
 
-            bundle = clocked_read_byte(IEC_BIT_CLOCK, IEC_BIT_ATN, 90);
+            bundle = clocked_read_byte(
+              IEC_BIT_CLOCK, IEC_BIT_ATN, bundle != 0 ? 90 : 0);
             if (has_timed_out())
               goto exit;
           }
