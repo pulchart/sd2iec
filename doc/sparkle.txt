@@ -16,7 +16,7 @@ Loader Revisions
 Various revisions have been publicly released, but only revisions
 1.0 and >= 1.5 seem to be actually used by any production.
 
-1.0 is only used by OMG Got Balls! [067] and that doesn't even seem to
+1.0 is only used by OMG Got Balls! [072] and that doesn't even seem to
 really use the code released as 1.0, but some pre-release version.
 
 1.0     https://csdb.dk/release/?id=183006
@@ -31,6 +31,7 @@ really use the code released as 1.0, but some pre-release version.
 3.0     https://csdb.dk/release/?id=236718 protocol matches 2.2
 3.1     https://csdb.dk/release/?id=248615 protocol matches 2.2
 3.2     https://csdb.dk/release/?id=254420
+3.3     https://csdb.dk/release/?id=259428
 
 git     https://github.com/spartaomg/Sparkle.git
         https://github.com/spartaomg/Sparkle2.git
@@ -148,7 +149,7 @@ The byte encoding and sector layout differs between loader revisions
 >= 2.1 | 76540213 | $7f | reversed
 
 As a special case, the 2.1 pre-release revision used by Padawan's
-Awakening [058] uses the 2.1 byte encoding, but an eor value of $ff.
+Awakening [063] uses the 2.1 byte encoding, but an eor value of $ff.
 
 Sector Chains
 -------------
@@ -162,7 +163,7 @@ chain are calculated using the following recipe:
     if next_sector >= number_of_sectors_on_current_track: // overflow
       next_sector = next_sector - number_of_sectors_on_current_track
 
-      if track < 18 and next_sector > 0:
+      if next_sector > 0 and (track < 18 or loader version >= 3.3):
         next_sector = next_sector - 1
 
     while next_sector was already used:
@@ -185,10 +186,10 @@ chain are calculated using the following recipe:
       if next_sector < 0:
         next_sector = next_sector + number_of_sectors_on_current_track
 
-- Sector skew is only used in Median [052]/[055] (both with an offset
+- Sector skew is only used in Median [057]/[060] (both with an offset
   value of 2).
 - The sector is set to 0 after every track change only in Padawan's
-  Awakening [058].
+  Awakening [063].
 
 Loader Parameters
 -----------------
@@ -241,7 +242,7 @@ the track which have already been used, so the real first sector of
 the bundle has to be calculated by iterating that number of sectors
 starting from the sector in the directory entry.
 
-For example, on the first disk of E2IRA [045] the directory entry for
+For example, on the first disk of E2IRA [050] the directory entry for
 the second bundle is [$04 $01 $0e $3a]. So the bundle starts on track
 $04, the first sector used on that track after the track change from
 track $03 was $01 and as track $04 has $15 sectors, $15-$0e = $07
@@ -301,7 +302,7 @@ after its first block has been transferred (see "Highscore Saver",
 below).
 
 Note that some 2.0 pre-release loader revisions (known productions
-using them are Memento Mori [065] and all known reMETA releases) send
+using them are Memento Mori [070] and all known reMETA releases) send
 the bundle/command byte inverted.
 
 File Transfer
@@ -380,8 +381,8 @@ The payload for each block is transferred using the 1-bit receive
 protocol and written to the sectors found using the standard iteration
 algorithm (see "Sector Chains", above).
 
-Known Productions using this Loader (as of August 2025)
-=======================================================
+Known Productions using this Loader (as of February 2026)
+=========================================================
 
 Note: The table below is compiled from releases on CSDb crediting
       Sparta for the loader. It might not be complete and productions
@@ -396,71 +397,76 @@ Reference:
 
 Ref | Title                              |  CSDb  |  Rev  |  Enc  | N
 ----|------------------------------------|--------|-------|-------|---
-000 | Propaganda #36                     | 255058 |  3.2  |  2.1  | S4
-001 | Nightworks                         | 254879 |  2.1  |  2.1  |
-002 | Wavemode                           | 254707 |  3.2  |  2.1  |
-003 | Dreams Remain                      | 252086 |  2.1  |  2.1  |
-004 | Invasion Anarchy V1.1              | 251998 |  2.1  |  2.1  | S
-005 | Invasion Anarchy                   | 251380 |  2.1  |  2.1  | S
-006 | fünfzig 90%                        | 250421 |  2.1  |  2.1  |
-007 | The Pretzelves                     | 248563 |  2.1  |  2.1  | S
-008 | Propaganda #35                     | 246003 |  2.1  |  2.1  | S4
-009 | A három nyúl                       | 245962 |  2.1  |  2.1  |
-010 | 3SIRA                              | 245148 |  2.1  |  2.1  |
-011 | A.I. LOVE YOU                      | 244933 |  2.1  |  2.1  |
-012 | reMETA #19                         | 244155 | 2.0pr |  2.0  |
-013 | C64GFX.com CharSet Logo Compo 2... | 243331 |  2.1  |  2.1  |
-014 | reMETA #18                         | 243285 | 2.0pr |  2.0  |
-015 | Propaganda #34                     | 238775 |  2.1  |  2.1  | S
-016 | Ewe Woz 'Ere DX 1.3                | 236895 |  2.1  |  2.1  | S
-017 | reMETA #17                         | 235443 | 2.0pr |  2.0  |
-018 | Best on CRT with Demonote          | 235320 |  2.1  |  2.1  |
-019 | The Machine                        | 235319 |  2.1  |  2.1  |
-020 | reMETA #16                         | 233824 | 2.0pr |  2.0  |
-021 | Bright Side Dark Side              | 233786 |  2.1  |  2.1  |
-022 | reMETA #15                         | 233198 | 2.0pr |  2.0  |
-023 | Event Zero Trailer                 | 232983 |  2.1  |  2.1  |
-024 | No Bounds                          | 232957 |  2.1  |  2.1  |
-025 | reMETA #14                         | 231492 | 2.0pr |  2.0  |
-026 | Rest In Peace HIC                  | 229857 |  2.1  |  2.1  |
-027 | Propaganda #33                     | 228879 |  2.1  |  2.1  | S
-028 | Sweet Sixteen                      | 228540 |  1.5  |       |
-029 | Do Pretzels Dream?                 | 226669 |  2.0  |  2.0  |
-030 | Purple                             | 226025 |  2.1  |  2.1  |
-031 | Sabre Wulf Remastered Preview (... | 225069 |  2.0  |  2.1  | 4
-032 | FatZooMania                        | 225045 |  1.5  |       |
-033 | All Hallows' Eve                   | 225023 |  2.1  |  2.1  |
-034 | reMETA #13                         | 222246 | 2.0pr |  2.0  |
-035 | F20                                | 221934 |  2.1  |  2.1  |
-036 | Best on CRT                        | 221932 |  2.1  |  2.1  |
-037 | 30+                                | 221141 |  2.1  |  2.1  |
-038 | Propaganda #32                     | 220069 |  2.1  |  2.1  | S4
-039 | reMETA #12                         | 219454 | 2.0pr |  2.0  |
-040 | Starfleet Academy                  | 219301 |  2.1  |  2.1  |
-041 | Sidelined 2                        | 219299 |  2.1  |  2.1  |
-042 | XXX+I                              | 219297 |  2.1  |  2.1  |
-043 | reMETA #11                         | 218433 | 2.0pr |  2.0  |
-044 | I Adore My 64=                     | 218362 |  2.1  |  2.1  |
-045 | E2IRA                              | 218343 |  2.1  |  2.1  |
-046 | Munchkin 64                        | 217475 |  2.1  |  2.1  | S
-047 | Propaganda #31                     | 216359 |  2.1  |  2.1  | S
-048 | Partypopper                        | 216277 |  1.5  |       |
-049 | The C64 Grand Tour Challenge Mu... | 215035 |  2.1  |  2.1  |
-050 | Sprite Spirit                      | 214861 |  2.1  |  2.1  |
-051 | The C64 Grand Tour Challenge Mu... | 213591 |  2.1  |  2.1  |
-052 | Median (Final)                     | 212308 |  2.0  |  2.1  |
-053 | Propaganda #30                     | 211249 |  2.0  |  2.1  | S4
-054 | reMETA #10                         | 209216 | 2.0pr |  2.0  |
-055 | Median                             | 208412 |  2.0  |  2.1  |
-056 | XXX                                | 207188 |  2.0  |  2.0  |
-057 | reMETA #9                          | 205624 | 2.0pr |  2.0  |
-058 | Padawans' Awakening                | 205525 |  2.0  | 2.1ff |
-059 | Balls Might Touch                  | 203383 |  1.5  |       |
-060 | Fjortis!                           | 202474 |  1.5  |       |
-061 | We Love to Party                   | 202472 |  2.0  |  2.0  |
-062 | Christmas Megademo                 | 198283 |  2.0  |  2.0  |
-063 | reMETA #8                          | 196409 | 2.0pr |  2.0  |
-064 | Gamertro                           | 195843 |  1.5  |       |
-065 | Memento Mori                       | 195841 | 2.0pr |  2.0  |
-066 | 5 Shades of Grey                   | 192912 |  1.5  |       |
-067 | OMG Got Balls!                     | 175653 |  1.0  |       |
+000 | Aloft                              | 259056 |  3.3  |  2.1  |
+001 | Sabre Wulf Remastered Preview V0.5 | 258098 |  2.1  |  2.1  | S4
+002 | Crimbo 1982                        | 258069 |  2.1  |  2.1  |
+003 | We Are The Anomaly                 | 257561 |  2.1  |  2.1  |
+004 | C64GFX.com CharSet Logo Compo 2... | 255371 |  2.1  |  2.1  |
+005 | Propaganda #36                     | 255058 |  3.2  |  2.1  | S4
+006 | Nightworks                         | 254879 |  2.1  |  2.1  |
+007 | Wavemode                           | 254707 |  3.2  |  2.1  |
+008 | Dreams Remain                      | 252086 |  2.1  |  2.1  |
+009 | Invasion Anarchy V1.1              | 251998 |  2.1  |  2.1  | S
+010 | Invasion Anarchy                   | 251380 |  2.1  |  2.1  | S
+011 | fünfzig 90%                        | 250421 |  2.1  |  2.1  |
+012 | The Pretzelves                     | 248563 |  2.1  |  2.1  | S
+013 | Propaganda #35                     | 246003 |  2.1  |  2.1  | S4
+014 | A három nyúl                       | 245962 |  2.1  |  2.1  |
+015 | 3SIRA                              | 245148 |  2.1  |  2.1  |
+016 | A.I. LOVE YOU                      | 244933 |  2.1  |  2.1  |
+017 | reMETA #19                         | 244155 | 2.0pr |  2.0  |
+018 | C64GFX.com CharSet Logo Compo 2... | 243331 |  2.1  |  2.1  |
+019 | reMETA #18                         | 243285 | 2.0pr |  2.0  |
+020 | Propaganda #34                     | 238775 |  2.1  |  2.1  | S
+021 | Ewe Woz 'Ere DX 1.3                | 236895 |  2.1  |  2.1  | S
+022 | reMETA #17                         | 235443 | 2.0pr |  2.0  |
+023 | Best on CRT with Demonote          | 235320 |  2.1  |  2.1  |
+024 | The Machine                        | 235319 |  2.1  |  2.1  |
+025 | reMETA #16                         | 233824 | 2.0pr |  2.0  |
+026 | Bright Side Dark Side              | 233786 |  2.1  |  2.1  |
+027 | reMETA #15                         | 233198 | 2.0pr |  2.0  |
+028 | Event Zero Trailer                 | 232983 |  2.1  |  2.1  |
+029 | No Bounds                          | 232957 |  2.1  |  2.1  |
+030 | reMETA #14                         | 231492 | 2.0pr |  2.0  |
+031 | Rest In Peace HIC                  | 229857 |  2.1  |  2.1  |
+032 | Propaganda #33                     | 228879 |  2.1  |  2.1  | S
+033 | Sweet Sixteen                      | 228540 |  1.5  |       |
+034 | Do Pretzels Dream?                 | 226669 |  2.0  |  2.0  |
+035 | Purple                             | 226025 |  2.1  |  2.1  |
+036 | Sabre Wulf Remastered Preview (... | 225069 |  2.0  |  2.1  | 4
+037 | FatZooMania                        | 225045 |  1.5  |       |
+038 | All Hallows' Eve                   | 225023 |  2.1  |  2.1  |
+039 | reMETA #13                         | 222246 | 2.0pr |  2.0  |
+040 | F20                                | 221934 |  2.1  |  2.1  |
+041 | Best on CRT                        | 221932 |  2.1  |  2.1  |
+042 | 30+                                | 221141 |  2.1  |  2.1  |
+043 | Propaganda #32                     | 220069 |  2.1  |  2.1  | S4
+044 | reMETA #12                         | 219454 | 2.0pr |  2.0  |
+045 | Starfleet Academy                  | 219301 |  2.1  |  2.1  |
+046 | Sidelined 2                        | 219299 |  2.1  |  2.1  |
+047 | XXX+I                              | 219297 |  2.1  |  2.1  |
+048 | reMETA #11                         | 218433 | 2.0pr |  2.0  |
+049 | I Adore My 64=                     | 218362 |  2.1  |  2.1  |
+050 | E2IRA                              | 218343 |  2.1  |  2.1  |
+051 | Munchkin 64                        | 217475 |  2.1  |  2.1  | S
+052 | Propaganda #31                     | 216359 |  2.1  |  2.1  | S
+053 | Partypopper                        | 216277 |  1.5  |       |
+054 | The C64 Grand Tour Challenge Mu... | 215035 |  2.1  |  2.1  |
+055 | Sprite Spirit                      | 214861 |  2.1  |  2.1  |
+056 | The C64 Grand Tour Challenge Mu... | 213591 |  2.1  |  2.1  |
+057 | Median (Final)                     | 212308 |  2.0  |  2.1  |
+058 | Propaganda #30                     | 211249 |  2.0  |  2.1  | S4
+059 | reMETA #10                         | 209216 | 2.0pr |  2.0  |
+060 | Median                             | 208412 |  2.0  |  2.1  |
+061 | XXX                                | 207188 |  2.0  |  2.0  |
+062 | reMETA #9                          | 205624 | 2.0pr |  2.0  |
+063 | Padawans' Awakening                | 205525 |  2.0  | 2.1ff |
+064 | Balls Might Touch                  | 203383 |  1.5  |       |
+065 | Fjortis!                           | 202474 |  1.5  |       |
+066 | We Love to Party                   | 202472 |  2.0  |  2.0  |
+067 | Christmas Megademo                 | 198283 |  2.0  |  2.0  |
+068 | reMETA #8                          | 196409 | 2.0pr |  2.0  |
+069 | Gamertro                           | 195843 |  1.5  |       |
+070 | Memento Mori                       | 195841 | 2.0pr |  2.0  |
+071 | 5 Shades of Grey                   | 192912 |  1.5  |       |
+072 | OMG Got Balls!                     | 175653 |  1.0  |       |

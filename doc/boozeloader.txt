@@ -100,7 +100,7 @@ CBM DOS directory:
   contains up to $7f start-track/-sector pairs.
 
   Which sector is used for the directory differs between loader
-  revisions: Most use sector $09, some $0c and Edge of Disgrace [037]
+  revisions: Most use sector $09, some $0c and Edge of Disgrace [038]
   uses $06.
 
 2. Start-Track and -Sector
@@ -153,8 +153,8 @@ sequence is detected on ATN, where each phase is 18us. The drive
 ignores all other changes on the bus lines which makes it possible for
 the host to modify $dd00 without having to mask the IEC line bits.
 
-Known Productions using this Loader (as of April 2025)
-======================================================
+Known Productions using this Loader (as of February 2026)
+=========================================================
 
 Note: The table below is compiled from releases on CSDb crediting
       HCL for loader or code, plus a few others found during testing.
@@ -167,47 +167,48 @@ Reference:
 
 Ref | Title                                             |  CSDb  | DS 
 ----|---------------------------------------------------|--------|----
-000 | Codeboys & Endians                                | 249805 |  9
-001 | Watering a Flower                                 | 249686 |  9
-002 | Partypåg                                          | 244751 |  9
-003 | Zeitgeist                                         | 244749 |  9
-004 | Kinetics                                          | 232961 |  9
-005 | Uncle Petscii Presents Good King Wenceslas        | 226967 |  9
-006 | 30 Years                                          | 219292 |  9
-007 | FrostFlakes                                       | 211023 |  9
-008 | Uncle Petscii's Droids of Star Wars               | 205538 |  9
-009 | Uncle PETSCII's Christmas Show                    | 198323 |  9
-010 | Diagonality                                       | 192925 |  9
-011 | Remains                                           | 187524 |  9
-012 | The Elder Scrollers                               | 179123 |  9
-013 | Drinking Buddies                                  | 170930 |  9
-014 | Soft Machine                                      | 165916 |  9
-015 | Black Celebration                                 | 162817 |  9
-016 | Neon                                              | 153521 |  9
-017 | Monumentum                                        | 151258 |  9
-018 | Classics                                          | 149157 |  9
-019 | Northern Star                                     | 144097 |  9
-020 | Demo with Bugs                                    | 143451 |  9
-021 | Drinking Leroy                                    | 139585 | 12
-022 | Nasty 2                                           | 138962 |  9
-023 | Timeline                                          | 137488 | 12
-024 | Uncensored                                        | 133934 |  9
-025 | Bitter Swede Symphony                             | 121610 |  9
-026 | Time Machine                                      | 116340 |  9
-027 | Time Machine [party version]                      | 115655 |  9
-028 | Attitude #13                                      | 111011 |
-029 | Zeros & Ones                                      | 102116 |
-030 | 1991                                              | 101506 | 12
-031 | Attitude #12                                      | 101359 |
-032 | Attitude #11                                      |  96330 |
-033 | Mekanix                                           |  94438 |
-034 | Attitude #10                                      |  88462 |
-035 | Intro Collection                                  |  84570 |
-036 | Andropolis                                        |  81157 |
-037 | Edge of Disgrace                                  |  72550 |  6
-038 | Party Pig                                         |  50831 |
-039 | Let's Scroll It!                                  |  41460 |
-040 | Smart Girls Hate Booze                            |  19418 |
-041 | Tsunami                                           |  17913 |
-042 | Hammarkullen                                      |  13876 |
-043 | Cycle                                             |  11959 |
+000 | Ad Astra per Alas Porci                           | 256166 |  9
+001 | Codeboys & Endians                                | 249805 |  9
+002 | Watering a Flower                                 | 249686 |  9
+003 | Partypåg                                          | 244751 |  9
+004 | Zeitgeist                                         | 244749 |  9
+005 | Kinetics                                          | 232961 |  9
+006 | Uncle Petscii Presents Good King Wenceslas        | 226967 |  9
+007 | 30 Years                                          | 219292 |  9
+008 | FrostFlakes                                       | 211023 |  9
+009 | Uncle Petscii's Droids of Star Wars               | 205538 |  9
+010 | Uncle PETSCII's Christmas Show                    | 198323 |  9
+011 | Diagonality                                       | 192925 |  9
+012 | Remains                                           | 187524 |  9
+013 | The Elder Scrollers                               | 179123 |  9
+014 | Drinking Buddies                                  | 170930 |  9
+015 | Soft Machine                                      | 165916 |  9
+016 | Black Celebration                                 | 162817 |  9
+017 | Neon                                              | 153521 |  9
+018 | Monumentum                                        | 151258 |  9
+019 | Classics                                          | 149157 |  9
+020 | Northern Star                                     | 144097 |  9
+021 | Demo with Bugs                                    | 143451 |  9
+022 | Drinking Leroy                                    | 139585 | 12
+023 | Nasty 2                                           | 138962 |  9
+024 | Timeline                                          | 137488 | 12
+025 | Uncensored                                        | 133934 |  9
+026 | Bitter Swede Symphony                             | 121610 |  9
+027 | Time Machine                                      | 116340 |  9
+028 | Time Machine [party version]                      | 115655 |  9
+029 | Attitude #13                                      | 111011 |
+030 | Zeros & Ones                                      | 102116 |
+031 | 1991                                              | 101506 | 12
+032 | Attitude #12                                      | 101359 |
+033 | Attitude #11                                      |  96330 |
+034 | Mekanix                                           |  94438 |
+035 | Attitude #10                                      |  88462 |
+036 | Intro Collection                                  |  84570 |
+037 | Andropolis                                        |  81157 |
+038 | Edge of Disgrace                                  |  72550 |  6
+039 | Party Pig                                         |  50831 |
+040 | Let's Scroll It!                                  |  41460 |
+041 | Smart Girls Hate Booze                            |  19418 |
+042 | Tsunami                                           |  17913 |
+043 | Hammarkullen                                      |  13876 |
+044 | Cycle                                             |  11959 |
