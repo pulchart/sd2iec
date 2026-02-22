@@ -97,9 +97,11 @@ static const PROGMEM uint8_t param_layouts[][NUM_PARAMS] = {
 /* ids of productions that need special treatment:    */
 /* - Median / Median final: using "sector skew" == 2. */
 /* - Propaganda 30: sets sector = 0 on track change.  */
+/* - Aloft: applies SubSct on all tracks.             */
 static const PROGMEM uint8_t pid_median[]       = { 0xbd, 0xe2, 0x0a };
 static const PROGMEM uint8_t pid_median_final[] = { 0xbd, 0x8c, 0xd3 };
 static const PROGMEM uint8_t pid_propaganda30[] = { 0x92, 0xd2, 0x6f };
+static const PROGMEM uint8_t pid_aloft[]        = { 0x81, 0x6f, 0x7c };
 
 typedef struct session_s {
   buffer_t *dir_buf;
@@ -126,7 +128,7 @@ typedef struct session_s {
   int has_skew:1;     // loader version with sector skew (Median, Median final)
   int has_nsreset:1;  // start at sector 0 after track change (Propaganda 30)
   int bundle_inv:1;   // bundle number is sent inverted (Memento Mori, reMETA)
-  int full_subsct:1;  // sector-- after overflow on all tracks (>= 3.3)
+  int full_subsct:1;  // sector-- after overflow on all tracks (Aloft)
 
   /* function pointers */
   uint8_t (*decode_byte)(uint8_t);
@@ -255,7 +257,7 @@ static void advance_sector(session_t *s, uint8_t ds) {
   if (s->sector >= s->num_sectors) { // overflow
     s->sector -= s->num_sectors;
 
-    /* subsct tracks 1-17 <= 3.2, all tracks >= 3.3 */
+    /* special case tracks 1 to 17 (Aloft: all tracks) */
     if ((s->full_subsct || s->track < 18) && s->sector > 0)
       s->sector--;
   }
@@ -390,7 +392,6 @@ static uint8_t init_disk(session_t *s) {
           detected_loader = FL_SPARKLE_21;
         } else { // looks like >= 3.2
           detected_loader = FL_SPARKLE_32;
-          s->full_subsct  = datacrc != BOOTSTRAP_32;
         }
       }
 
@@ -407,6 +408,8 @@ static uint8_t init_disk(session_t *s) {
 
           /* Propaganda 30 resets the sector to 0 on every track change */
           s->has_nsreset = pidcmp(s, pid_propaganda30);
+          /* Aloft applies SubSct on all tracks */
+          s->full_subsct = pidcmp(s, pid_aloft);
         }
       }
 
