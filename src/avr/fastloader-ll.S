@@ -2094,8 +2094,8 @@ IEC_SRQ_INT_VECT:
         ;; void fs_reset(void)
 fs_reset:
         in      r18, _SFR_IO_ADDR(SREG)
-        cli
         ldi     r19, 1
+        cli
         sts     sr_shadow, r19
         sts     sr_ready, r1
         out     _SFR_IO_ADDR(SREG), r18
@@ -2125,8 +2125,7 @@ fs_read_byte:
         ;; void fs_send_byte(uint8_t byte)
         .global fs_send_byte
 fs_send_byte:
-        mov     r0, r24
-        com     r0
+        com     r24
 
         ldi     r19, 8  ; bit counter
 
@@ -2135,7 +2134,7 @@ fs_send_byte:
 
         in      r20, _SFR_IO_ADDR(IEC_OUTPUT)
 1:
-        bst     r0, 7                                   ; 1
+        bst     r24, 7                                  ; 1
         bld     r20, IEC_OPIN_DATA                      ; 1
         ;; force DATA low if ATN is set
         sbis    _SFR_IO_ADDR(IEC_INPUT), IEC_PIN_ATN    ; 2/1
@@ -2145,7 +2144,7 @@ fs_send_byte:
         delay_us 2, -3
         cbi     _SFR_IO_ADDR(SRQ_OUTPUT), IEC_OPIN_SRQ  ; 2
         delay_us 3, -10
-        lsl     r0                                      ; 1
+        lsl     r24                                     ; 1
         dec     r19                                     ; 1
         brne    1b                                      ; 2/1
 
