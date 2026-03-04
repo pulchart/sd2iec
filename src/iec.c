@@ -595,13 +595,16 @@ void iec_mainloop(void) {
       /* Wait for ATN */
       parallel_set_dir(PARALLEL_DIR_IN);
       set_atn_irq(1);
-      while (IEC_ATN) {
+      while (1) {
         if (key_pressed(KEY_RESET)) {
           /* close all channels and set dos version as error message */
           reset_key(KEY_RESET);
           free_multiple_buffers(FMB_USER);
           fs_reset();
           set_error(ERROR_DOSVERSION);
+        } else if (!IEC_ATN) {
+          iec_data.bus_state = BUS_FOUNDATN;
+          break;
         } else if (key_pressed(KEY_NEXT | KEY_PREV | KEY_HOME)) {
           change_disk();
         } else if (key_pressed(KEY_SLEEP)) {
@@ -614,9 +617,6 @@ void iec_mainloop(void) {
         }
         system_sleep();
       }
-
-      if (iec_data.bus_state != BUS_SLEEP)
-        iec_data.bus_state = BUS_FOUNDATN;
       break;
 
     case BUS_FOUNDATN: // E85B
