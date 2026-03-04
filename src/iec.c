@@ -325,8 +325,7 @@ static uint8_t iec_listen_handler(const uint8_t cmd) {
   /* and it isn't an OPEN command                             */
   if ((buf == NULL || !buf->write) && (cmd & 0xf0) != 0xf0) {
     uart_putc('c');
-    iec_data.bus_state = BUS_CLEANUP;
-    return 1;
+    return 0;
   }
 
   if (iec_data.iecflags & FAST_SERIAL) {
@@ -369,7 +368,7 @@ static uint8_t iec_listen_handler(const uint8_t cmd) {
       /* Flush buffer if full */
       if (buf->mustflush) {
         if (buf->refill(buf))
-          return 1;
+          return 0;
         /* Search the buffer again, it can change when using large buffers. */
         buf = find_buffer(cmd & 0x0f);
       }
@@ -388,7 +387,7 @@ static uint8_t iec_listen_handler(const uint8_t cmd) {
       /* REL files must be syncronized on EOI */
       if(buf->recordlen && (iec_data.iecflags & EOI_RECVD))
         if (buf->refill(buf))
-          return 1;
+          return 0;
     }
   }
 }
@@ -409,10 +408,8 @@ static uint8_t iec_talk_handler(uint8_t cmd) {
     return 0; /* 0 because we didn't change the state here */
 
   /* Ignore talk requests for random access files at EOF */
-  if (buf->random && buf->position > buf->lastused) {
-    iec_data.bus_state = BUS_CLEANUP;
-    return 1;
-  }
+  if (buf->random && buf->position > buf->lastused)
+    return 0;
 
   if (iec_data.iecflags & JIFFY_ACTIVE)
     /* wait 360us (J1541 E781) to make sure the C64 is at fbb7/fb0c */
@@ -421,7 +418,7 @@ static uint8_t iec_talk_handler(uint8_t cmd) {
   if (iec_data.iecflags & JIFFY_LOAD) {
     /* See if the C64 has passed fb06 or if we should abort */
     do {                /* J1541 FF30 - wait until DATA inactive/high */
-      if (iec_check_atn()) return -1;
+      if (iec_check_atn()) return 1;
     } while (!IEC_DATA);
     /* The LOAD path is only used after the first two bytes have been */
     /* read. Reset the buffer position because there is a chance that */
@@ -451,7 +448,7 @@ static uint8_t iec_talk_handler(uint8_t cmd) {
         if (jiffy_send(buf->data[buf->position],0,128 | !finalbyte)) {
           /* Abort if ATN was seen */
           iec_check_atn();
-          return -1;
+          return 1;
         }
 
         if (finalbyte && buf->sendeoi) {
@@ -482,7 +479,7 @@ static uint8_t iec_talk_handler(uint8_t cmd) {
           }
           if (res) {
             uart_putc('Q');
-            return 1;
+            return 0;
           }
         } else {
           /* Send without EOI */
@@ -493,7 +490,7 @@ static uint8_t iec_talk_handler(uint8_t cmd) {
 
           if (res) {
             uart_putc('V');
-            return 1;
+            return 0;
           }
         }
       }
@@ -508,10 +505,8 @@ static uint8_t iec_talk_handler(uint8_t cmd) {
       break;
     }
 
-    if (buf->refill(buf)) {
-      iec_data.bus_state = BUS_CLEANUP;
-      return 1;
-    }
+    if (buf->refill(buf))
+      return 0;
 
     /* Search the buffer again, it can change when using large buffers */
     buf = find_buffer(cmd & 0x0f);
@@ -523,7 +518,7 @@ static uint8_t iec_talk_handler(uint8_t cmd) {
 
       /* check if ATN changed */
       if (iec_check_atn())
-        return -1;
+        return 1;
 
       /* Signal to the C64 that we're ready to send the next block */
       set_data(0);
