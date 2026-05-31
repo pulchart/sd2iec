@@ -62,6 +62,7 @@
 #define BOOTSTRAP_2x  0x1874
 #define BOOTSTRAP_32  0x6b82
 #define BOOTSTRAP_33  0x8ad2
+#define BOOTSTRAP_34  0x284c
 
 /* offset of the bundle count offset in the BAM sector (1.x only) */
 #define BNDCNT_OFFS   0xfe
@@ -341,7 +342,7 @@ static uint8_t init_disk(session_t *s) {
       /* 3.2 uses the same bootstrap code as 3.0 and 3.1, but a */
       /* different parameter layout. Plus $f9 is part of the    */
       /* prod id and therefore can't be used for detection.     */
-      if (datacrc != BOOTSTRAP_32 && datacrc != BOOTSTRAP_33) {
+      if (datacrc != BOOTSTRAP_32 && datacrc != BOOTSTRAP_33 && datacrc != BOOTSTRAP_34) {
         switch (s->dir_buf->data[0xf9] & 0xc0) {
           case 0x00: // <= 2.0
             /* for 1.x [0xf8] == -[0xf9] (IL0R / IL0) (or == 0 for 1.0) */
@@ -648,7 +649,8 @@ bool load_sparkle(UNUSED_PARAMETER) {
   uint8_t   bundle;
 
   datacrc = command_crc(5, 0);
-  if ((command_length != 0x26 || datacrc != BOOTSTRAP_33) &&
+  if ((command_length != 0x25 || datacrc != BOOTSTRAP_34) &&
+      (command_length != 0x26 || datacrc != BOOTSTRAP_33) &&
       (command_length != 0x28 || datacrc != BOOTSTRAP_32) &&
       (command_length != 0x22 || datacrc != BOOTSTRAP_2x) &&
       (command_length != 0x28 || datacrc != BOOTSTRAP_15) &&
