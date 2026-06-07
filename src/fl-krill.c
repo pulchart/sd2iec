@@ -120,6 +120,10 @@ static const PROGMEM file_quirks_t file_quirks[] = {
   { 0x279d,  20 }, /* vicious sid 2        / "LOADER" for "CREDITS" */
   { 0x3493,  20 }, /* vicious sid 2        / "LOADER" for "GREETS1" */
   { 0xd366,  80 }, /* we are all connected / "UO"                   */
+  { 0x0974, 240 }, /* time paradox 90%     / "F3"                   */
+  { 0x24ba, 240 }, /* time paradox 90%     / "F5"                   */
+  { 0xa139, 240 }, /* time paradox 90%     / "F7"                   */
+  { 0x9d06, 240 }, /* time paradox 90%     / "C2"                   */
 
   { 0, 0 } // end marker
 };
