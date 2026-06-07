@@ -302,6 +302,7 @@ static const PROGMEM struct fastloader_crc_s fl_crc_table[] = {
   { 0xc33e, FL_BITFIRE_12,       RXTX_BITFIRE_DATA  },
   { 0xbfef, FL_BITFIRE_12,       RXTX_BITFIRE_DATA  },
   { 0xb89a, FL_BITFIRE_12,       RXTX_BITFIRE_DATA  },
+  { 0xc1bc, FL_BITFIRE_13,       RXTX_BITFIRE_IDATA },
 #endif
 
   { 0, FL_NONE, 0 }, // end marker
@@ -459,6 +460,7 @@ static const PROGMEM struct fastloader_handler_s fl_handler_table[] = {
   { 0x0700, FL_BITFIRE_12PR1,    load_bitfire,   6 },
   { 0x0700, FL_BITFIRE_12PR2,    load_bitfire,   6 },
   { 0x0700, FL_BITFIRE_12,       load_bitfire,   6 },
+  { 0x0600, FL_BITFIRE_13,       load_bitfire,   6 },
 #endif
 #ifdef CONFIG_LOADER_SPARKLE
   { 0x0205, FL_NONE,             load_sparkle,   0 },

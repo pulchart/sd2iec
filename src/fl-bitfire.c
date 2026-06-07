@@ -74,6 +74,8 @@ typedef union {
 /* For now this exception is handled in iterate_file()/iterate_sector(). */
 #define INTERLEAVE      4
 
+#define EXEC_CMD        0xed  // not supported
+#define SKIP_FILE_CMD   0xee  // not supported
 #define LOAD_NEXT_CMD   0xef
 #define RESET_CMD       0xff
 
@@ -331,6 +333,7 @@ static void get_dir_entry(uint8_t *dir_buf, uint8_t i, dir_entry_t *e) {
   switch (detected_loader) {
     case FL_BITFIRE_12:
     case FL_BITFIRE_12PR2:
+    case FL_BITFIRE_13:
       e->v1.addr   = dir_buf[0x04+0*0x3f+i] | dir_buf[0x04+1*0x3f+i] << 8;
       e->v1.length = dir_buf[0x04+2*0x3f+i] | dir_buf[0x04+3*0x3f+i] << 8;
       break;
@@ -376,6 +379,7 @@ static void iterate_file(session_t *s, uint8_t file) {
     switch (detected_loader) {
       case FL_BITFIRE_12:
       case FL_BITFIRE_12PR2:
+      case FL_BITFIRE_13:
         l = s->dir_buf->data[0x04+2*0x3f+i] | s->dir_buf->data[0x04+3*0x3f+i] << 8;
         break;
       case FL_BITFIRE_12PR1:
@@ -626,7 +630,7 @@ bool load_bitfire(uint8_t proto) {
     set_data(0);
 
     if (cmd < 0xf0) {
-      if (cmd == 0x80) // custom drivecode upload (not supported)
+      if (cmd == 0x80 || cmd == EXEC_CMD) // custom drivecode not supported
         goto exit;
       if (load_file(&session, cmd))
         goto exit; // error
