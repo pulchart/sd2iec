@@ -444,7 +444,8 @@ static uint8_t load_file(session_t *s, uint8_t file) {
   if (!buf)
     return 1;
 
-  delay_ms(30); // needed at least by Incoherent Nightmare
+  if (detected_loader < FL_BITFIRE_13)
+    delay_ms(30); // needed at least by Incoherent Nightmare
 
   for (bi = 0;; bi++) {
     read_sector(buf, current_part, s->track, s->sector);
