@@ -216,6 +216,7 @@ static const PROGMEM struct fastloader_crc_s fl_crc_table[] = {
 #endif
 #ifdef CONFIG_LOADER_N0SDOS
   { 0x327d, FL_N0SDOS_FILEREAD,  RXTX_NONE          }, // CRC up to 0x65f to avoid junk data
+  { 0xa4a1, FL_N0SDOS_FILEREAD,  RXTX_NONE          }, // d81
 #endif
 #ifdef CONFIG_LOADER_SAMSJOURNEY
   { 0x6af4, FL_SAMSJOURNEY,      RXTX_NONE          }, // CRC of penultimate M-W
@@ -371,6 +372,7 @@ static const PROGMEM struct fastloader_handler_s fl_handler_table[] = {
 #endif
 #ifdef CONFIG_LOADER_N0SDOS
   { 0x041b, FL_N0SDOS_FILEREAD,  load_n0sdos_fileread, 0 },
+  { 0x0503, FL_N0SDOS_FILEREAD,  load_n0sdos_fileread, 0 }, // d81
 #endif
 #ifdef CONFIG_LOADER_SAMSJOURNEY
   { 0x0400, FL_SAMSJOURNEY,      load_samsjourney, 0 },
@@ -491,8 +493,9 @@ static const PROGMEM struct fastloader_capture_s fl_capture_table[] = {
 /* Currently we remember two bytes per address since that's the longest   */
 /* block required. */
 static const PROGMEM magic_value_t drive_magics[] = {
-  /* used by DreamLoad and ULoad Model 3 */
+  /* used by DreamLoad, ULoad Model 3 and n0sdos 1581 fileloader */
   { 0xfea0, { 0x0d, 0xed }, DRIVE_1541|DRIVE_1571 },
+  { 0xfea0, { 0xff, 0xff }, DRIVE_1581            },
   /* used by DreamLoad, ULoad Model 3 and Krill's loader */
   { 0xe5c6, { 0x34, 0xb1 }, DRIVE_1541            },
   /* Disable AR6 fastloader */
