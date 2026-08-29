@@ -646,10 +646,12 @@ void iec_mainloop(void) {
 #else
       while (1) {
         if (key_pressed(KEY_RESET)) {
-          /* close all channels and set dos version as error message */
+          /* Close all channels, invalidate previous file */
+          /* and set dos version as error message.        */
           reset_key(KEY_RESET);
           free_multiple_buffers(FMB_USER);
           fs_reset();
+          previous_file_dirent.name[0] = 0;
           set_error(ERROR_DOSVERSION);
         } else if (!IEC_ATN) {
           iec_data.bus_state = BUS_FOUNDATN;
