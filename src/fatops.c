@@ -2223,6 +2223,28 @@ void image_set_headername(path_t *path, uint8_t *newname, uint8_t *newid) {
 }
 
 /**
+ * image_change_type - generic change_type for filesystems without types to change
+ */
+void image_change_type(path_t *path, cbmdirent_t *dent, uint8_t newtype) {
+  (void)path;
+  (void)dent;
+  (void)newtype;
+
+  set_error(ERROR_SYNTAX_UNABLE);
+}
+
+/**
+ * image_convert - generic convert for filesystems that do not convert
+ */
+void image_convert(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
+  (void)path;
+  (void)dent;
+  (void)newname;
+
+  set_error(ERROR_SYNTAX_UNABLE);
+}
+
+/**
  * check_free - Check if a specified number of bytes is free on the partition
  * @part: partition number
  * @need: minimum number of free bytes needed
@@ -2463,6 +2485,51 @@ static void fat_set_attrib(path_t *path, cbmdirent_t *dent, uint8_t mask, uint8_
   parse_error(res,0);
 }
 
+static void fat_change_type(path_t *path, cbmdirent_t *dent, uint8_t newtype) {
+  uint8_t *x00ext;
+  FRESULT  res;
+  FILINFO  finfo;
+
+  partition[path->part].fatfs.cdir = path->dir.fat;
+  p00cache_invalidate();
+
+  ustrcpy(ops_scratch, dent->name);
+
+  if (dent->opstype == OPSTYPE_FAT_X00)
+  {
+    x00ext = build_name(ops_scratch, newtype, BN_X00RENAME) - 1;
+
+    /* Find a free sequence number */
+    res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
+    while (res == FR_OK) {
+      *x00ext += 1;
+      if (*x00ext == '9'+1) {
+        *x00ext = '0';
+        *(x00ext-1) += 1;
+        if (*(x00ext-1) == '9'+1) {
+          set_error(ERROR_FILE_EXISTS);
+          return;
+        }
+      }
+      res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
+    }
+  }
+  else
+     x00ext = build_name(ops_scratch, newtype, BN_RENAME);
+
+  set_dirty_led(1);
+  res = f_rename(&partition[path->part].fatfs, dent->pvt.fat.realname, ops_scratch);
+  update_leds();
+
+  if (res != FR_OK)
+    parse_error(res, 0);
+}
+
+static void fat_convert(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
+  (void)path; (void)dent; (void)newname;
+  set_error(ERROR_SYNTAX_UNABLE);
+}
+
 const PROGMEM fileops_t fatops = {  // These should be at bottom, to be consistent with d64ops and m2iops
   &fat_open_read,
   &fat_open_write,
@@ -2481,5 +2548,7 @@ const PROGMEM fileops_t fatops = {  // These should be at bottom, to be consiste
   &fat_chdir,
   &fat_rename,
   &fat_set_attrib,
-  &image_set_headername
+  &image_set_headername,
+  &fat_change_type,
+  &fat_convert
 };

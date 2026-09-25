@@ -436,5 +436,7 @@ const PROGMEM fileops_t eefs_ops = {
   eefs_chdir,
   eefs_rename,
   image_set_attrib,
-  image_set_headername
+  image_set_headername,
+  image_change_type,
+  image_convert
 };
