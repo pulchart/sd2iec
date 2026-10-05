@@ -21,47 +21,45 @@
 #ifndef DISPLAY_LCD
 #define DISPLAY_LCD
 
+#include <stdint.h>
+#include "config.h"
+
+#ifdef CONFIG_LCD_DISPLAY
+
+#include "bus.h"
 #include "lcd.h"
 
 #define MAXLINELENGHT 20
 
-#define DS_CLR lcd_clrscr();
-#define DS_CLRLINE(A) lcd_clrline(A);
-#define DS_READY(A) lcd_ready(A);
-#define DS_INIT lcd_init(LCD_DISP_ON);
+#define DS_INIT()     lcd_init(LCD_DISP_ON)
+#define DS_BOOT()     lcd_boot()
+#define DS_READY()    lcd_ready(device_address)
+#define DS_ERROR(A)   lcd_error(A)
+#define DS_LOAD(A)    lcd_show_name(1, 'L', (const char *)(A))
+#define DS_SAVE(A)    lcd_show_name(1, 'S', (const char *)(A))
+#define DS_CD(A)      lcd_path((const char *)(A))
+#define DS_TICK()     lcd_scroll_poll()
 
-#define DS_CTRL(A)  lcd_cmdseq(A);
-
-#define DS_LOGO lcd_logo();
-
-#define DS_PUTS(A)  lcd_puts(A);
-#define DS_PUTSP(A)  lcd_puts_p(PSTR(A));
-#define DS_PUTSPP(A)  lcd_puts_p(A);
-
-#define DS_SHOW(A,B)  lcd_clrline(A); lcd_puts(B);
-#define DS_SHOWP(A,B)  lcd_clrline(A); lcd_puts_p(PSTR(B));
-
-#define EEE
-#define DS_EEE lcd_eee();
-#define DS_CONTRAST(A) lcd_contrast(A);
-
-#define DS_TITLE lcd_clrline(0); lcd_puts_p(PSTR("SD2IEC " LCDVERSION));
-#define DS_DIR lcd_clrline(1); lcd_puts_p(PSTR("L:$"));
-#define DS_LOAD(A) lcd_clrline(1);   lcd_puts_p(PSTR("L:"));  lcd_puts(A);
-#define DS_SAVE(A) lcd_clrline(1);   lcd_puts_p(PSTR("S:"));  lcd_puts(A);
-#define DS_DEL(A) lcd_clrline(1);   lcd_puts_p(PSTR("R:"));  lcd_puts(A);
-#define DS_CD(A) lcd_path(A);
-#define DS_SHOWP1(A)  lcd_gotoxy(0,1); lcd_puts_p(PSTR(A));
-
+void lcd_boot(void);
 void lcd_clrline(int line);
-void lcd_cmdseq(char * seq);
-void lcd_logo(void);
-void lcd_eee(void);
-void lcd_setCustomChars(void);
 void lcd_ready(uint8_t device);
-void lcd_path(char * path);
-void lcd_contrast(uint8_t contrast);
-extern uint8_t fs_mode;
-extern uint8_t lcdcontrast;
+void lcd_error(const uint8_t *msg);
+void lcd_path(const char *path);
+void lcd_show_name(uint8_t line, char tag, const char *name);
+void lcd_scroll_poll(void);
+uint8_t lcd_xcommand(uint8_t *cmd);
+
+#else /* CONFIG_LCD_DISPLAY */
+
+#define DS_INIT()     do { } while (0)
+#define DS_BOOT()     do { } while (0)
+#define DS_READY()    do { } while (0)
+#define DS_ERROR(A)   do { } while (0)
+#define DS_LOAD(A)    do { } while (0)
+#define DS_SAVE(A)    do { } while (0)
+#define DS_CD(A)      do { } while (0)
+#define DS_TICK()     do { } while (0)
+
+#endif /* CONFIG_LCD_DISPLAY */
 
 #endif

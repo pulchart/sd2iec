@@ -47,9 +47,7 @@
 #include "ustring.h"
 #include "utils.h"
 
-#ifdef CONFIG_LCD_DISPLAY
 #include "display_lcd.h"
-#endif
 
 
 #if defined(__AVR__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 1))
@@ -89,10 +87,7 @@ int main(void) {
   disk_init();   // accesses card
   read_configuration();
 
-#ifdef CONFIG_LCD_DISPLAY
-  /* initialize display, cursor off */
-  DS_INIT;
-#endif
+  DS_INIT();
 
   filesystem_init(0);
   change_init();
@@ -100,27 +95,6 @@ int main(void) {
   uart_puts_P(PSTR("\r\nsd2iec " VERSION " #"));
   uart_puthex(device_address);
   uart_putcrlf();
-
-#ifdef CONFIG_LCD_DISPLAY
-  uart_putcrlf();
-  uart_puts_P(PSTR("\n\nLCD: "));
-  switch(lcd_controller_type())
-  {
-  case 4:
-	  uart_puts_P(PSTR("HD44780 "));
-	  break;
-  case 7:
-	  uart_puts_P(PSTR("ST7036 "));
-	  break;
-  default:
-	  uart_puts_P(PSTR("none "));
-	  break;
-  }
-  uart_putcrlf();
-
-  /* clear display and home cursor */
-  DS_CLR;
-#endif
 
 #ifdef CONFIG_REMOTE_DISPLAY
   /* at this point all buffers should be free, */
@@ -149,20 +123,7 @@ int main(void) {
   }
 #endif
 
-#ifdef CONFIG_LCD_DISPLAY
-
-  DS_READY(device_address);
-  fs_mode = 0;
-
-  /* clear display and home cursor */
-  DS_CLR;
-  DS_LOGO;
-
-  _delay_ms(1000);
-
-  /* put string to display (line 1) with linefeed */
-  DS_TITLE;
-#endif
+  DS_BOOT();
 
   bus_mainloop();
 

@@ -45,9 +45,7 @@
 #include "utils.h"
 #include "wrapops.h"
 #include "fileops.h"
-#ifdef CONFIG_LCD_DISPLAY
 #include "display_lcd.h"
-#endif
 
 /* ------------------------------------------------------------------------- */
 /*  global variables                                                         */
@@ -838,9 +836,7 @@ void file_open(uint8_t secondary) {
 
   /* Direct access? */
   if (command_buffer[0] == '#') {
-#ifdef CONFIG_LCD_DISPLAY
-    DS_LOAD((const char *) command_buffer);
-#endif
+    DS_LOAD(command_buffer);
     open_buffer(secondary);
     return;
   }
@@ -916,9 +912,7 @@ void file_open(uint8_t secondary) {
 
   /* Load directory? */
   if (command_buffer[0] == '$') {
-#ifdef CONFIG_LCD_DISPLAY
-    DS_LOAD((const char *) command_buffer);
-#endif
+    DS_LOAD(command_buffer);
     load_directory(secondary);
     return;
   }
@@ -997,15 +991,10 @@ void file_open(uint8_t secondary) {
     if (filetype == TYPE_DEL)
       filetype = TYPE_SEQ;
   }
-#ifdef CONFIG_LCD_DISPLAY
-  if (mode == OPEN_READ) {
-    DS_LOAD((const char *) command_buffer); 
-  }
-#endif
+  if (mode == OPEN_READ)
+    DS_LOAD(command_buffer);
   if (mode == OPEN_WRITE) {
-#ifdef CONFIG_LCD_DISPLAY
-    DS_SAVE((const char * ) command_buffer);
-#endif
+    DS_SAVE(command_buffer);
     if (res == 0) {
       /* Match found */
       if (command_buffer[0] == '@') {

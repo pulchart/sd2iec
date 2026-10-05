@@ -52,6 +52,7 @@
 #include "timer.h"
 #include "uart.h"
 #include "iec.h"
+#include "display_lcd.h"
 
 /* ------------------------------------------------------------------------- */
 /*  Global variables                                                         */
@@ -610,6 +611,7 @@ void iec_mainloop(void) {
           display_service();
           reset_key(KEY_DISPLAY);
         }
+        DS_TICK();
         system_sleep();
       }
       break;
