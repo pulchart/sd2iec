@@ -795,8 +795,6 @@ void do_chdir(uint8_t *parsestr) {
   if (parse_path(parsestr, &path, &name, 1))
     return;
 
-  DS_CD(name);
-
   /* clear '*' file */
   previous_file_dirent.name[0] = 0;
 

@@ -21,6 +21,7 @@
 #include "display_lcd.h"
 #include <avr/pgmspace.h>
 
+#include "fatops.h"
 #include "iec-bus.h"
 #include "parser.h"
 #include "timer.h"
@@ -193,6 +194,33 @@ void lcd_show_name(uint8_t line, char tag, const char *name)
 void lcd_path(const char *fs_path)
 {
 	lcd_show_name(0, 'D', fs_path);
+}
+
+/* Show the current FAT directory, a mounted image keeps its name */
+void lcd_cdir(path_t *path)
+{
+	uint8_t lbl[34];
+	uint8_t n;
+
+	if (path->part != current_part || partition[path->part].fop != &fatops)
+		return;
+
+	memset(lbl, 0, sizeof(lbl));
+	if (fat_getdirlabel(path, lbl))
+		return;
+
+	for (n = 0; lbl[n]; n++) {
+		if (lbl[n] >= 0xc1 && lbl[n] <= 0xda)
+			lbl[n] -= 0x80;
+		else if (lbl[n] == 0xa0)
+			lbl[n] = ' ';
+	}
+	while (n && lbl[n - 1] == ' ')
+		lbl[--n] = 0;
+	if (!n)
+		lbl[0] = '/';
+
+	lcd_path((char *)lbl);
 }
 
 /* Called from the bus idle loop */

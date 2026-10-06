@@ -27,6 +27,7 @@
 #ifdef CONFIG_LCD_DISPLAY
 
 #include "bus.h"
+#include "dirent.h"
 #include "lcd.h"
 
 #define MAXLINELENGHT 20
@@ -38,6 +39,7 @@
 #define DS_LOAD(A)    lcd_show_name(1, 'L', (const char *)(A))
 #define DS_SAVE(A)    lcd_show_name(1, 'S', (const char *)(A))
 #define DS_CD(A)      lcd_path((const char *)(A))
+#define DS_CDIR(A)    lcd_cdir(A)
 #define DS_TICK()     lcd_scroll_poll()
 
 void lcd_boot(void);
@@ -45,6 +47,7 @@ void lcd_clrline(int line);
 void lcd_ready(uint8_t device);
 void lcd_error(const uint8_t *msg);
 void lcd_path(const char *path);
+void lcd_cdir(path_t *path);
 void lcd_show_name(uint8_t line, char tag, const char *name);
 void lcd_scroll_poll(void);
 uint8_t lcd_xcommand(uint8_t *cmd);
@@ -58,6 +61,7 @@ uint8_t lcd_xcommand(uint8_t *cmd);
 #define DS_LOAD(A)    do { } while (0)
 #define DS_SAVE(A)    do { } while (0)
 #define DS_CD(A)      do { } while (0)
+#define DS_CDIR(A)    do { } while (0)
 #define DS_TICK()     do { } while (0)
 
 #endif /* CONFIG_LCD_DISPLAY */

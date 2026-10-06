@@ -1592,17 +1592,6 @@ uint8_t image_unmount(uint8_t part) {
   if (partition[part].fop == &d64ops)
     d64_unmount(part);
 
-#ifdef CONFIG_LCD_DISPLAY
-  {
-    path_t lcdpath;
-
-    lcdpath.part    = part;
-    lcdpath.dir.fat = partition[part].current_dir.fat;
-    fat_getdirlabel(&lcdpath, ops_scratch);
-    DS_CD(ops_scratch);
-  }
-#endif
-
   if (display_found) {
     /* Send current path to display */
     path_t path;
@@ -1614,6 +1603,15 @@ uint8_t image_unmount(uint8_t part) {
   }
 
   partition[part].fop = &fatops;
+#ifdef CONFIG_LCD_DISPLAY
+  {
+    path_t dirpath;
+
+    dirpath.part    = part;
+    dirpath.dir.fat = partition[part].current_dir.fat;
+    DS_CDIR(&dirpath);
+  }
+#endif
   res = f_close(&partition[part].imagehandle);
   if (res != FR_OK) {
     parse_error(res,0);
