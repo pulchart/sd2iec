@@ -1,9 +1,10 @@
 # sd2iec with LCD display support
 
-sd2iec firmware with support for parallel HD44780 and ST7036 character LCDs. The default branch `lcd` combines two repositories:
+sd2iec firmware with support for parallel HD44780 and ST7036 character LCDs. The default branch `lcd` combines these repositories:
 
-- [thierer/sd2iec](https://github.com/thierer/sd2iec): current unofficial sd2iec firmware, the base of this branch (`master` follows it). Original sd2iec by Ingo Korb: [sd2iec.de](https://www.sd2iec.de)
+- [thierer/sd2iec](https://github.com/thierer/sd2iec): current unofficial sd2iec firmware, the base of this branch (`master` follows it)
 - [SvOlli/sd2iec-lcd](https://github.com/SvOlli/sd2iec-lcd): LCD support, last updated in 2023 on an older sd2iec
+- [sd2iec.de](https://www.sd2iec.de): the original sd2iec by Ingo Korb, `git clone http://www.sd2iec.de/sd2iec.git`. Newer changes from its master are added to this branch
 
 LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, with small improvements and cleanup.
 
