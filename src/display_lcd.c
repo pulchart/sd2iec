@@ -294,9 +294,13 @@ void lcd_boot(void)
 
 void lcd_error(const uint8_t *msg)
 {
-	lcd_clrline(1);
-	lcd_puts_p(PSTR("E:"));
-	lcd_puts((const char *)msg);
+	char buf[SCROLL_MAX + 1];
+	uint8_t i;
+
+	for (i = 0; i < SCROLL_MAX && msg[i] && msg[i] != 13; i++)
+		buf[i] = msg[i];
+	buf[i] = 0;
+	lcd_show_name(1, 'E', buf);
 }
 
 /* X-commands XT, XA, XG, XX, XC; returns 1 on syntax error */
