@@ -35,8 +35,8 @@ static uint8_t lcdcontrast;  // andi6510: LCD contrast setting
 #define SCROLL_WIDTH  (LCD_DISP_LENGTH - SCROLL_PREFIX)
 #define SCROLL_MAX    32
 #define SCROLL_GAP    3
-#define SCROLL_START  MS_TO_TICKS(1000)
-#define SCROLL_STEP   MS_TO_TICKS(500)
+#define SCROLL_START  MS_TO_TICKS(1500)
+#define SCROLL_STEP   MS_TO_TICKS(700)
 
 static struct {
 	uint8_t len;
