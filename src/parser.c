@@ -322,7 +322,8 @@ uint8_t parse_path(uint8_t *in, path_t *path, uint8_t **name, uint8_t for_cd) {
         case '/':
           /* Double slash -> root */
           dent.name[0] = 0;
-          chdir(path, &dent);
+          if (chdir(path, &dent))
+            return 1;
           break;
 
         case 0:
@@ -341,7 +342,12 @@ uint8_t parse_path(uint8_t *in, path_t *path, uint8_t **name, uint8_t for_cd) {
           while (*end && *end != '/' && *end != ':') end++;
           saved = *end;
           *end = 0;
-          if (first_match(path, in, FLAG_HIDDEN, &dent)) {
+          /* Intermediate path components must be directories, */
+          /* the last one can be an image and thus is exempt.  */
+          if (first_match(path, in,
+                          (for_cd && saved == 0) ? FLAG_HIDDEN
+                                                 : (TYPE_DIR | FLAG_HIDDEN),
+                          &dent)) {
             /* first_match has set an error already */
             if (current_error == ERROR_FILE_NOT_FOUND)
               set_error(ERROR_FILE_NOT_FOUND_39);
@@ -362,7 +368,8 @@ uint8_t parse_path(uint8_t *in, path_t *path, uint8_t **name, uint8_t for_cd) {
           }
 
           /* Match found, move path */
-          chdir(path, &dent);
+          if (chdir(path, &dent))
+            return 1;
           *end = saved;
           in = end;
           break;
