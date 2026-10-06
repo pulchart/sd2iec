@@ -46,7 +46,9 @@
 #include "fastloader.h"
 
 
-static const PROGMEM uint8_t hexchars[16] = "0123456789ABCDEF";
+static const PROGMEM uint8_t hexchars[16] = {
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+};
 
 static uint8_t hex2bin(uint8_t *ch) {
   uint8_t result;

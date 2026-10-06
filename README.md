@@ -89,12 +89,6 @@ make dist
 
 `DISTCONFIGS="larsp-lcd evo2-lcd"` builds only some configs.
 
-With GCC 15 both stop on `-Wunterminated-string-initialization` in unmodified upstream files. Add `CSTANDARD` to the command:
-
-```
-make dist CSTANDARD="-std=gnu99 -Wno-error=unterminated-string-initialization"
-```
-
 ## Version
 
 The version format is `<major>.<build>[.<revision>]-JPU[+LCD]`, for example `1.186.2-JPU` and `1.186.2-JPU+LCD`.

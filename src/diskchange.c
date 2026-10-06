@@ -47,7 +47,7 @@ _Static_assert(CONFIG_COMMAND_BUFFER_SIZE < 256, "command buffer too large");
 
 static const char PROGMEM autoswap_lst_name[] = "AUTOSWAP.LST";
 static const char PROGMEM autoswap_gen_name[] = "AUTOSWAP.GEN"; // FIXME: must be 15 chars or less
-static const char PROGMEM petscii_marker[8]   = "#PETSCII";
+static const char PROGMEM petscii_marker[8]   = { '#', 'P', 'E', 'T', 'S', 'C', 'I', 'I' };
 
 static FIL     swaplist;
 static path_t  swappath;
