@@ -1,13 +1,6 @@
 # Hey Emacs, this is a -*- makefile -*-
 
-# Define version number
-MAJOR = 1
-MINOR = 0
-PATCHLEVEL = 0
-FIX =
-
-# Forces bootloader version to 0, comment out or leave empty for release
-PRERELEASE = atentdead0
+include version.mk
 
 #----------------------------------------------------------------------------
 # WinAVR Makefile Template written by Eric B. Weddington, Joerg Wunsch, et al.
@@ -167,6 +160,10 @@ CSTANDARD = -std=gnu99
 # Place -D or -U options here
 CDEFS = -DF_CPU=$(CONFIG_MCU_FREQ)UL
 
+ifeq ($(CONFIG_LCD_DISPLAY),y)
+PRERELEASE := $(PRERELEASE)+LCD
+endif
+
 # Calculate bootloader version
 ifdef PRERELEASE
 BOOT_VERSION := 0
@@ -190,7 +187,6 @@ endif
 LCDVERSION := $(PROGRAMVERSION)
 ifdef PRERELEASE
 PROGRAMVERSION := $(PROGRAMVERSION)$(PRERELEASE)
-LCDVERSION := $(LCDVERSION)+
 endif
 
 LONGVERSION := -$(CONFIGSUFFIX)

@@ -1,0 +1,17 @@
+LCD pinout for HD44780 and ST7036 displays, 4-bit mode.
+Pins are defined per hardware variant in src/lcd.h.
+
+larsp (MMC2IEC), config larsp-lcd, variant 3:
+  RS PB0, RW PB1, E PB2, DB4-DB7 PC4-PC7
+
+sw1 (Shadowolf MMC2IEC 1.x), variant 2:
+  RS PB0, RW PB1, E PB2, DB4-DB7 PA4-PA7
+
+sw2 (Shadowolf sd2iec 1.x), variant 5:
+  RS PB0, RW PB1, E PB3, DB4-DB7 PC4-PC7
+
+evo2, config evo2-lcd, variant 11:
+  RS PB0, RW PB1, E PB2, DB4-DB7 PC4-PC7
+
+Only larsp-lcd and evo2-lcd have configuration files. For other
+boards add the pins to src/lcd.h and set CONFIG_LCD_DISPLAY=y.

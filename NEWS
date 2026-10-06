@@ -1,4 +1,6 @@
 201x-xx-xx - release 1.0.0
+        - LCD display support (HD44780, ST7036)
+        - evo2 hardware variant 11
         - Bugfix: use valid default date if RTC is not detected
         - formatting for D71/D81/DNP images
         - DolphinDOS parallel speeder support

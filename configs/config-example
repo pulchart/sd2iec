@@ -211,6 +211,9 @@ CONFIG_RTC_DSRTC=y
 # I2C display
 CONFIG_REMOTE_DISPLAY=y
 
+# Parallel HD44780/ST7036 LCD, pins are set in src/lcd.h
+#CONFIG_LCD_DISPLAY=y
+
 # Display buffer size
 # This buffer is used as temporary space when sending commands to
 # the display. Longer texts will be truncated.

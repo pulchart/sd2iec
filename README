@@ -5,6 +5,8 @@ JiffyDos send based on code by M.Kiesel
 Fat LFN support and lots of other ideas+code by Jim Brain
 Final Cartridge III fastloader support by Thomas Giesel
 IEEE488 support by Nils Eilers
+LCD display support by Draco, Seanser, Sascha Bader, andi6510,
+  CapFuture1975 and Sven Oliver Moll
 
 Free software under GPL version 2 ONLY, see comments in main.c and
 COPYING for details.
@@ -438,6 +440,17 @@ Supported commands:
              configured for a device number that is already taken by
              another device on the bus without having to remove that
              device to reconfigure sd2iec (e.g. when using a C128D).
+
+  - XT1text  Show text on line 1 of the LCD, only if built with
+    XT2text  CONFIG_LCD_DISPLAY. XT2 uses line 2. The line is cleared first.
+    XTC<cmd><data>
+             Send a command byte to the LCD controller followed by data
+             bytes, e.g. OPEN15,8,15,"XTC"+CHR$(1) clears the display.
+
+  - XA       Show the about text on the LCD.
+    XG       Show the credits on the LCD.
+
+  - XCnum    Set the LCD contrast, num is 0 to 63. ST7036 displays only.
 
   - X?       Extended version query
              This commands returns the extended version string which
@@ -1082,6 +1095,18 @@ Other important notes:
 Compilation notes:
 ==================
 sd2iec requires avr-libc version 1.6.x.
+
+LCD display
+===========
+If built with CONFIG_LCD_DISPLAY=y sd2iec drives a parallel HD44780 or
+ST7036 display (2x16 or 2x20 characters) in 4-bit mode. After start the
+first line shows the version, later the current directory. The second
+line shows the name of the file being loaded (L:) or saved (S:), the
+error channel message (E:) or READY:<device address> when idle. Names
+longer than the display scroll while the bus is idle.
+
+Configurations: larsp-lcd (MMC2IEC) and evo2-lcd (evo2). Display pins
+for each board are listed in doc/lcd-pinout.txt.
 
 sd2iec is set up to be compiled in multiple configurations, controlled by
 configuration files. By default the Makefile looks for a file named
