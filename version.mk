@@ -5,6 +5,6 @@
 # PRERELEASE must not be empty, the boot loader then flashes every build.
 MAJOR = 1
 MINOR = 186
-PATCHLEVEL =
+PATCHLEVEL = 1
 FIX =
 PRERELEASE = -JPU

@@ -37,7 +37,7 @@ Every update needs the programmer. avrdude erases the whole chip.
 
 ```
 avrdude -c usbasp -P usb -p m1284p \
-  -U flash:w:dist/sd2iec-1.186-jpu-m1284p-larsp-lcd.bin:r \
+  -U flash:w:dist/sd2iec-1.186.1-jpu-m1284p-larsp-lcd.bin:r \
   -U efuse:w:0xFD:m \
   -U hfuse:w:0xD2:m \
   -U lfuse:w:0xE7:m
@@ -47,7 +47,7 @@ Fuses already set, firmware only:
 
 ```
 avrdude -c usbasp -P usb -p m1284p \
-  -U flash:w:dist/sd2iec-1.186-jpu-m1284p-larsp-lcd.bin:r
+  -U flash:w:dist/sd2iec-1.186.1-jpu-m1284p-larsp-lcd.bin:r
 ```
 
 ### With bootloader
@@ -69,7 +69,7 @@ To write the firmware with the programmer and keep the bootloader, add `-D`:
 
 ```
 avrdude -c usbasp -P usb -p m1284p -D \
-  -U flash:w:dist/sd2iec-1.186-jpu-m1284p-larsp-lcd.bin:r
+  -U flash:w:dist/sd2iec-1.186.1-jpu-m1284p-larsp-lcd.bin:r
 ```
 
 ## Build
@@ -80,7 +80,7 @@ Needs `avr-gcc` and `avr-libc`. One config:
 make CONFIG=configs/config-larsp-lcd
 ```
 
-The binary is `obj-m1284p-larsp-lcd/sd2iec.bin`. All configs, into `dist/` as `sd2iec-<version>-<mcu>-<config>.bin`, for example `sd2iec-1.186-jpu-m1284p-larsp-lcd.bin`:
+The binary is `obj-m1284p-larsp-lcd/sd2iec.bin`. All configs, into `dist/` as `sd2iec-<version>-<mcu>-<config>.bin`, for example `sd2iec-1.186.1-jpu-m1284p-larsp-lcd.bin`:
 
 ```
 make dist
@@ -96,7 +96,7 @@ make dist CSTANDARD="-std=gnu99 -Wno-error=unterminated-string-initialization"
 
 ## Version
 
-The version format is `<major>.<build>[.<revision>]-JPU[+LCD]`, for example `1.186-JPU` and `1.186-JPU+LCD`.
+The version format is `<major>.<build>[.<revision>]-JPU[+LCD]`, for example `1.186.1-JPU` and `1.186.1-JPU+LCD`.
 
 | Part | Meaning |
 |---|---|
@@ -108,9 +108,9 @@ The version format is `<major>.<build>[.<revision>]-JPU[+LCD]`, for example `1.1
 
 | Where | Example |
 |---|---|
-| Error channel (`UI`) | `SD2IEC V1.186-JPU+LCD` |
-| LCD line 1 | `SD2IEC 1.186` |
-| File name | `sd2iec-1.186-jpu-m1284p-larsp-lcd.bin` |
+| Error channel (`UI`) | `SD2IEC V1.186.1-JPU+LCD` |
+| LCD line 1 | `SD2IEC 1.186.1` |
+| File name | `sd2iec-1.186.1-jpu-m1284p-larsp-lcd.bin` |
 
 The version is set in `version.mk`. The boot loader flashes every build.
 
