@@ -1,5 +1,5 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2022  Ingo Korb <ingo@akana.de>
+   Copyright (C) 2007-2026  Ingo Korb <ingo@akana.de>
 
    Inspired by MMC2IEC by Lars Pontoppidan et al.
 
@@ -1820,7 +1820,8 @@ static void parse_scratch(void) {
   count = 0;
   /* Loop over all file names */
   while (filename != NULL) {
-    parse_path(filename, &path, &name, 0);
+    if (parse_path(filename, &path, &name, 0))
+      return;
 
     if (opendir(&matchdh, &path))
       return;

@@ -1,5 +1,5 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2022  Ingo Korb <ingo@akana.de>
+   Copyright (C) 2007-2026  Ingo Korb <ingo@akana.de>
    Final Cartridge III, DreamLoad, ELoad fastloader support:
    Copyright (C) 2008-2011  Thomas Giesel <skoe@directbox.com>
    Nippon Loader support:
@@ -36,6 +36,7 @@
 #include "doscmd.h"
 #include "fastloader-ll.h"
 #include "fileops.h"
+#include "gcccompat.h"
 #include "iec-bus.h"
 #include "iec.h"
 #include "parser.h"
@@ -46,9 +47,7 @@
 #include "fastloader.h"
 
 
-static const PROGMEM uint8_t hexchars[16] = {
-  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
-};
+static const PROGMEM NONSTRING uint8_t hexchars[16] = "0123456789ABCDEF";
 
 static uint8_t hex2bin(uint8_t *ch) {
   uint8_t result;
@@ -279,13 +278,21 @@ static uint8_t write_file_by_name(uint8_t name) {
 
     /* receive the actual data */
     while (length-- > 0) {
-      if (buf->mustflush) {
-        buf->refill(buf);
+      if (buf != NULL && buf->mustflush) {
+        if (buf->refill(buf)) {
+          /* write failed and buffer was freed, can't signal this   */
+          /* but we can at least discard the remaining data cleanly */
+          buf = NULL;
+        }
       }
 
       res = getbyte();
       if (res < 0)
         goto fail;
+
+      if (buf == NULL)
+        continue;
+
       buf->data[buf->position] = res;
 
       if (buf->lastused < buf->position)
@@ -298,7 +305,8 @@ static uint8_t write_file_by_name(uint8_t name) {
   }
 
  fail:
-  cleanup_and_free_buffer(buf);
+  if (buf != NULL)
+    cleanup_and_free_buffer(buf);
   return retval;
 }
 

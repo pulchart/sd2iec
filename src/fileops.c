@@ -1,5 +1,5 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2022  Ingo Korb <ingo@akana.de>
+   Copyright (C) 2007-2026  Ingo Korb <ingo@akana.de>
 
    Inspired by MMC2IEC by Lars Pontoppidan et al.
 
@@ -779,6 +779,19 @@ static void open_buffer(uint8_t secondary) {
 }
 
 /**
+ * free_unopened_buffer - free a buffer if opening a file on it failed
+ * @buf: buffer that was passed to open_read/open_write/open_rel
+ *
+ * The open functions leave the buffer allocated when they fail, but
+ * fastloaders that call file_open() check for success by calling
+ * find_buffer(), so the buffer must be freed in that case.
+ */
+static void free_unopened_buffer(buffer_t *buf) {
+  if (!buf->read && !buf->write)
+    free_buffer(buf);
+}
+
+/**
  * file_open_previous - reopens the last opened file
  *
  * This function reopens the last opened file in read mode.
@@ -796,6 +809,7 @@ void file_open_previous(void) {
 
   display_filename_read(path.part, CBM_NAME_LENGTH, dent.name);
   open_read(&path, &dent, buf, 0);
+  free_unopened_buffer(buf);
 }
 
 /**
@@ -814,7 +828,9 @@ void file_open(uint8_t secondary) {
   /* If the secondary is already in use, close the existing buffer */
   buf = find_buffer(secondary);
   if (buf != NULL) {
-    /* FIXME: What should we do if an error occurs? */
+    /* A real drive just discards the old channel here without flushing, */
+    /* but calling the cleanup seems nicer and makes resource management */
+    /* in the various ops implementations simpler.                       */
     cleanup_and_free_buffer(buf);
   }
 
@@ -1045,6 +1061,7 @@ void file_open(uint8_t secondary) {
   if(filetype == TYPE_REL) {
     display_filename_write(path.part,CBM_NAME_LENGTH,dent.name);
     open_rel(&path, &dent, buf, recordlen, (mode == OPEN_MODIFY));
+    free_unopened_buffer(buf);
     return;
   }
 
@@ -1064,6 +1081,8 @@ void file_open(uint8_t secondary) {
     open_write(&path, &dent, filetype, buf, (mode == OPEN_APPEND));
     break;
   }
+
+  free_unopened_buffer(buf);
 
   if (secondary <= 1) {
     previous_file_path   = path;

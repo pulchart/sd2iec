@@ -1,5 +1,5 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2022  Ingo Korb <ingo@akana.de>
+   Copyright (C) 2007-2026  Ingo Korb <ingo@akana.de>
    Final Cartridge III, DreamLoad, ELoad fastloader support:
    Copyright (C) 2008-2011  Thomas Giesel <skoe@directbox.com>
    Nippon Loader support:
@@ -153,7 +153,9 @@ bool load_n0sdos_fileread(UNUSED_PARAMETER) {
 
       if (!buf->sendeoi) {
         /* read next sector if available */
-        buf->refill(buf);
+        if (buf->refill(buf))
+          /* no way to signal errors, just stop sending */
+          goto leave;
       }
     }
 

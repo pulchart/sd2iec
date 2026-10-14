@@ -1,5 +1,5 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2022  Ingo Korb <ingo@akana.de>
+   Copyright (C) 2007-2026  Ingo Korb <ingo@akana.de>
 
    Inspired by MMC2IEC by Lars Pontoppidan et al.
 
@@ -33,6 +33,7 @@
 #include "fatops.h"
 #include "flags.h"
 #include "ff.h"
+#include "gcccompat.h"
 #include "led.h"
 #include "parser.h"
 #include "progmem.h"
@@ -47,7 +48,7 @@ _Static_assert(CONFIG_COMMAND_BUFFER_SIZE < 256, "command buffer too large");
 
 static const char PROGMEM autoswap_lst_name[] = "AUTOSWAP.LST";
 static const char PROGMEM autoswap_gen_name[] = "AUTOSWAP.GEN"; // FIXME: must be 15 chars or less
-static const char PROGMEM petscii_marker[8]   = { '#', 'P', 'E', 'T', 'S', 'C', 'I', 'I' };
+static const char PROGMEM NONSTRING petscii_marker[8]   = "#PETSCII";
 
 static FIL     swaplist;
 static path_t  swappath;
