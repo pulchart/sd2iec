@@ -83,6 +83,12 @@ the number of loops is calculated at compile-time from MCU clock frequency
 *************************************************************************/
 #define delay(us)  _delay_us(us)
 
+#ifdef CONFIG_LCD_WS0010
+#define LCD_INIT_DELAY 5000
+#else
+#define LCD_INIT_DELAY 64
+#endif
+
 
 /* toggle Enable Pin to initiate write */
 static void toggle_e(void)
@@ -300,6 +306,9 @@ void lcd_clrscr(void)
 	if (lcd_autodetect)
 	{
 		lcd_command(1<<LCD_CLR);
+#ifdef CONFIG_LCD_WS0010
+		lcd_command(1<<LCD_DDRAM);   /* back to DDRAM after clear */
+#endif
 	}
 }
 
@@ -389,7 +398,11 @@ void lcd_init(uint8_t dispAttr)
     DDR(LCD_DATA2_PORT) |= _BV(LCD_DATA2_PIN);
     DDR(LCD_DATA3_PORT) |= _BV(LCD_DATA3_PIN);
 
+#ifdef CONFIG_LCD_WS0010
+    _delay_ms(500);      /* WS0010 power-on wait                   */
+#else
     delay(16000);        /* wait 16ms or more after power-on       */
+#endif
 
     /* initial write to lcd is 8bit */
     LCD_DATA1_PORT |= _BV(LCD_DATA1_PIN);  // _BV(LCD_FUNCTION)>>4;
@@ -399,19 +412,37 @@ void lcd_init(uint8_t dispAttr)
 
     /* repeat last command */
     lcd_e_toggle();
-    delay(64);           /* delay, busy flag can't be checked here */
+    delay(LCD_INIT_DELAY); /* delay, busy flag can't be checked here */
 
     /* repeat last command a third time */
     lcd_e_toggle();
-    delay(64);           /* delay, busy flag can't be checked here */
+    delay(LCD_INIT_DELAY); /* delay, busy flag can't be checked here */
 
     /* now configure for 4bit mode */
     LCD_DATA0_PORT &= ~_BV(LCD_DATA0_PIN);   // LCD_FUNCTION_4BIT_1LINE>>4
     lcd_e_toggle();
-    delay(64);           /* some displays need this additional delay */
+    delay(LCD_INIT_DELAY); /* some displays need this additional delay */
 
     /* from now the LCD only accepts 4 bit I/O, we can use lcd_command() */
 
+#ifdef CONFIG_LCD_WS0010
+	/* WS0010 OLED: no busy flag test, DC-DC on, presence by CGRAM read-back */
+	lcd_write(LCD_FUNCTION_DEFAULT,0);
+	delay(LCD_INIT_DELAY);
+	lcd_autodetect = 1;
+	lcd_command(LCD_MODE_PWR | LCD_MODE_PWR_ON);   /* character mode, DC-DC on */
+	lcd_command(0x40);   /* write CGRAM */
+	lcd_data(0x07);
+	lcd_command(0x40);   /* read CGRAM */
+	lcd_waitbusy();
+	c = lcd_read(1) & 0x1f;
+	if (c == 0x07) {
+		lcd_autodetect = 8;
+	} else {
+		lcd_autodetect = 0;
+		return;       /* no display */
+	}
+#else
 	// andi6510: autodetect if LCD is connected
 	lcd_autodetect = 0;
 	lcd_write(LCD_FUNCTION_DEFAULT,0); /* function set: display lines  */
@@ -448,6 +479,7 @@ void lcd_init(uint8_t dispAttr)
 		lcd_waitbusy();    // wait until display is ready
 		lcd_autodetect = lcd_read(1); // read back CGRAM
 	}
+#endif
 
 	switch(lcd_autodetect)
 	{

@@ -48,6 +48,7 @@
 #include "errormsg.h"
 #include "ctype.h"
 #include "display.h"
+#include "display_lcd.h"
 #include "system.h"
 
 /*
@@ -613,7 +614,10 @@ void ieee_mainloop(void) {
             free_multiple_buffers(FMB_USER);
             set_error(ERROR_DOSVERSION);
           } else if (key_pressed(KEY_NEXT | KEY_PREV | KEY_HOME)) {
-            change_disk();
+            if (DS_WAKE())
+              reset_key(KEY_NEXT | KEY_PREV | KEY_HOME);
+            else
+              change_disk();
           } else if (key_pressed(KEY_SLEEP)) {
             reset_key(KEY_SLEEP);
             ieee_data.bus_state = BUS_SLEEP;

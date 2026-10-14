@@ -31,12 +31,44 @@
 
 static uint8_t lcdcontrast;  // andi6510: LCD contrast setting
 
+#ifdef CONFIG_LCD_WS0010
+#define DIM_AFTER MS_TO_TICKS(45000)
+
+static tick_t  dim_last;
+static uint8_t dimmed;
+
+/* Content changed: restart the dim timer and light the display */
+static void lcd_activity(void)
+{
+	dim_last = getticks();
+	if (dimmed) {
+		dimmed = 0;
+		lcd_command(LCD_DISP_ON);
+	}
+}
+
+/* Returns 1 if the display was dimmed and is lit again, the key is consumed */
+uint8_t lcd_wake(void)
+{
+	if (!dimmed)
+		return 0;
+	lcd_activity();
+	return 1;
+}
+#else
+#define lcd_activity() do { } while (0)
+#endif
+
 #define SCROLL_PREFIX 2
 #define SCROLL_WIDTH  (LCD_DISP_LENGTH - SCROLL_PREFIX)
 #define SCROLL_MAX    32
 #define SCROLL_GAP    3
 #define SCROLL_START  MS_TO_TICKS(1500)
+#ifdef CONFIG_LCD_WS0010
+#define SCROLL_STEP   MS_TO_TICKS(300)
+#else
 #define SCROLL_STEP   MS_TO_TICKS(700)
+#endif
 
 static struct {
 	uint8_t len;
@@ -159,6 +191,7 @@ void lcd_ready(uint8_t dev_addr)
 {
 	if (lcd_controller_type() != 0)
 	{
+		lcd_activity();
 		lcd_clrline(1);
 		lcd_puts_p(PSTR("READY:"));
 		lcd_putc('0' + dev_addr / 10);
@@ -174,6 +207,7 @@ void lcd_show_name(uint8_t line, char tag, const char *name)
 	if (lcd_controller_type() == 0)
 		return;
 
+	lcd_activity();
 	lcd_clrline(line);
 	lcd_putc(tag);
 	lcd_putc(':');
@@ -228,6 +262,16 @@ void lcd_scroll_poll(void)
 {
 	uint8_t l;
 
+#ifdef CONFIG_LCD_WS0010
+	if (dimmed || lcd_controller_type() == 0)
+		return;
+	if (time_after(getticks(), dim_last + DIM_AFTER)) {
+		dimmed = 1;
+		lcd_command(LCD_DISP_OFF);
+		return;
+	}
+#endif
+
 	for (l = 0; l < 2; l++) {
 		uint8_t len = scroll[l].len;
 		uint8_t idx;
@@ -279,6 +323,11 @@ void lcd_boot(void)
 	case 7:
 		uart_puts_P(PSTR("ST7036"));
 		break;
+#ifdef CONFIG_LCD_WS0010
+	case 8:
+		uart_puts_P(PSTR("WS0010"));
+		break;
+#endif
 	default:
 		uart_puts_P(PSTR("none"));
 		break;
@@ -290,6 +339,7 @@ void lcd_boot(void)
 	_delay_ms(1000);
 	lcd_title();
 	lcd_ready(device_address);
+	lcd_activity();
 }
 
 void lcd_error(const uint8_t *msg)
@@ -309,6 +359,7 @@ uint8_t lcd_xcommand(uint8_t *cmd)
 	uint8_t *str;
 	uint16_t num;
 
+	lcd_activity();
 	switch (cmd[1]) {
 	case 'T':
 		str = cmd + 3;

@@ -31,6 +31,7 @@
 #include "config.h"
 #include "crc.h"
 #include "diskchange.h"
+#include "display_lcd.h"
 #include "doscmd.h"
 #include "fastloader-ll.h"
 #include "iec-bus.h"
@@ -67,7 +68,10 @@ uint8_t check_keys(void) {
 
   /* Check for disk changes etc. */
   if (key_pressed(KEY_NEXT | KEY_PREV | KEY_HOME)) {
-    change_disk();
+    if (DS_WAKE())
+      reset_key(KEY_NEXT | KEY_PREV | KEY_HOME);
+    else
+      change_disk();
   }
   if (key_pressed(KEY_SLEEP)) {
     reset_key(KEY_SLEEP);

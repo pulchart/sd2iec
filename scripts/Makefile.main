@@ -160,7 +160,9 @@ CSTANDARD = -std=gnu99
 # Place -D or -U options here
 CDEFS = -DF_CPU=$(CONFIG_MCU_FREQ)UL
 
-ifeq ($(CONFIG_LCD_DISPLAY),y)
+ifeq ($(CONFIG_LCD_WS0010),y)
+PRERELEASE := $(PRERELEASE)+OLED
+else ifeq ($(CONFIG_LCD_DISPLAY),y)
 PRERELEASE := $(PRERELEASE)+LCD
 endif
 

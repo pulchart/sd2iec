@@ -602,7 +602,10 @@ void iec_mainloop(void) {
           iec_data.bus_state = BUS_FOUNDATN;
           break;
         } else if (key_pressed(KEY_NEXT | KEY_PREV | KEY_HOME)) {
-          change_disk();
+          if (DS_WAKE())
+            reset_key(KEY_NEXT | KEY_PREV | KEY_HOME);
+          else
+            change_disk();
         } else if (key_pressed(KEY_SLEEP)) {
           reset_key(KEY_SLEEP);
           iec_data.bus_state = BUS_SLEEP;

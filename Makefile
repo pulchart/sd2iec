@@ -47,7 +47,7 @@ FORCE: ;
 # sd2iec-<version>-<mcu>-<config>.bin, the version is set in version.mk
 include version.mk
 
-DISTCONFIGS ?= uIEC uIEC3 larsp plus sw1 sw2 evo2 larsp-lcd evo2-lcd
+DISTCONFIGS ?= uIEC uIEC3 larsp plus sw1 sw2 evo2 larsp-lcd evo2-lcd larsp-oled
 DISTNAME    := sd2iec-$(MAJOR).$(MINOR)$(if $(PATCHLEVEL),.$(PATCHLEVEL))$(shell echo '$(PRERELEASE)' | tr A-Z a-z)
 
 .PHONY: dist

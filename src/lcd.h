@@ -120,6 +120,13 @@
 #define LCD_DISP_ON              0x0C   /* display on, cursor off */
 #define LCD_DISP_ON_CURSOR       0x0E   /* display on, cursor on */
 
+#ifdef CONFIG_LCD_WS0010
+/* WS0010 Mode/Pwr instruction: 0 0 0 1 G/C PWR 1 1 */
+#define LCD_MODE_PWR             0b00010011
+#define LCD_MODE_PWR_ON          0b00000100   /* PWR: internal DC-DC on */
+#define LCD_MODE_GRAPHIC         0b00001000   /* G/C: graphic mode, 0=character mode */
+#endif
+
 #define LCD_FUNCTION_4BIT_1LINE  0x20   /* 4-bit interface, one line, 5x7 dots */
 #define LCD_FUNCTION_4BIT_2LINES 0x28   /* 4-bit interface, two lines, 5x7 dots */
 
@@ -134,7 +141,7 @@ void lcd_puts_p(const char *progmem_s);
 void lcd_command(uint8_t cmd);
 void lcd_data(uint8_t data);
 
-/* 7: ST7036, 4: HD44780, 0: no display found */
+/* 8: WS0010, 7: ST7036, 4: HD44780, 0: no display found */
 uint8_t lcd_controller_type(void);
 
 #endif

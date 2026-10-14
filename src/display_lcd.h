@@ -41,6 +41,12 @@
 #define DS_CD(A)      lcd_path((const char *)(A))
 #define DS_CDIR(A)    lcd_cdir(A)
 #define DS_TICK()     lcd_scroll_poll()
+#ifdef CONFIG_LCD_WS0010
+#define DS_WAKE()     lcd_wake()
+uint8_t lcd_wake(void);
+#else
+#define DS_WAKE()     0
+#endif
 
 void lcd_boot(void);
 void lcd_clrline(int line);
@@ -63,6 +69,7 @@ uint8_t lcd_xcommand(uint8_t *cmd);
 #define DS_CD(A)      do { } while (0)
 #define DS_CDIR(A)    do { } while (0)
 #define DS_TICK()     do { } while (0)
+#define DS_WAKE()     0
 
 #endif /* CONFIG_LCD_DISPLAY */
 

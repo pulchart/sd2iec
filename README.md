@@ -1,6 +1,6 @@
 # sd2iec with LCD display support
 
-sd2iec firmware with support for parallel HD44780 and ST7036 character LCDs. The default branch `lcd` combines these repositories:
+sd2iec firmware with support for parallel HD44780 and ST7036 character LCDs and WS0010 OLED displays. The default branch `lcd` combines these repositories:
 
 - [thierer/sd2iec](https://github.com/thierer/sd2iec): current unofficial sd2iec firmware, the base of this branch (`master` follows it)
 - [SvOlli/sd2iec-lcd](https://github.com/SvOlli/sd2iec-lcd): LCD support, last updated in 2023 on an older sd2iec
@@ -10,16 +10,20 @@ LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, wi
 
 ## What is added
 
-- LCD driver and display layer: `src/lcd.c`, `src/display_lcd.c`
-- Display shows the version, current directory, loaded and saved names, error channel and the device address. Long names scroll while the bus is idle
-- X-commands for text, contrast and credits, see `README`
-- Configs `larsp-lcd` (MMC2IEC) and `evo2-lcd` (evo2), plus `evo2` as hardware variant 11
-- Display pins per board: `doc/lcd-pinout.txt`
+- Support for WS0010 OLED displays: config `larsp-oled` (MMC2IEC with a module such as the Winstar WEH001602A), dimming after inactivity
+- Scrolling of names longer than the display, the long file name of a mounted image
 
-## Status
+## Display
 
-- Tested on hardware: `larsp-lcd`
-- Not tested on hardware: `evo2`, `evo2-lcd`, sw1 and sw2 pin tables
+Line 1 shows the directory or the mounted image, line 2 the loaded or saved file, the error message or `READY:` with the device address. Names longer than 14 characters scroll, a mounted image shows its long file name.
+
+| | LCD (HD44780, ST7036) | OLED (WS0010) |
+|---|---|---|
+| Configs | `larsp-lcd`, `evo2-lcd` | `larsp-oled` |
+| Scroll step | 700 ms | 300 ms |
+| Dimming | no | after 45 seconds without a change |
+
+A dimmed OLED lights up on a change of content. The first press of Next, Prev or Home only wakes it, the next press acts. Pins: `doc/lcd-pinout.txt`.
 
 ## Programming
 
@@ -91,7 +95,7 @@ make dist
 
 ## Version
 
-The version format is `<major>.<build>[.<revision>]-JPU[+LCD]`, for example `1.186.3-JPU` and `1.186.3-JPU+LCD`.
+The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for example `1.186.3-JPU`, `1.186.3-JPU+LCD` and `1.186.3-JPU+OLED`.
 
 | Part | Meaning |
 |---|---|
@@ -100,6 +104,7 @@ The version format is `<major>.<build>[.<revision>]-JPU[+LCD]`, for example `1.1
 | `<revision>` | revision, left out when there is none |
 | `-JPU` | this fork |
 | `+LCD` | builds with LCD support |
+| `+OLED` | builds with WS0010 OLED support |
 
 | Where | Example |
 |---|---|
@@ -108,6 +113,17 @@ The version format is `<major>.<build>[.<revision>]-JPU[+LCD]`, for example `1.1
 | File name | `sd2iec-1.186.3-jpu-m1284p-larsp-lcd.bin` |
 
 The version is set in `version.mk`. The boot loader flashes every build.
+
+## X-commands
+
+Sent on the command channel, for example `@"XT1HELLO"` with JiffyDOS (the quotes are required) or `OPEN15,8,15,"XT1HELLO":CLOSE15`.
+
+| Command | Action |
+|---|---|
+| `XT1text`, `XT2text` | show `text` on line 1 or 2 |
+| `XA` | show the version and the author of the LCD code |
+| `XG` | show the credits |
+| `XCnn` | set the contrast 0 to 63, ST7036 only |
 
 ## Credits
 
