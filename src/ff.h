@@ -79,7 +79,11 @@
 /* _MAX_LFN_LENGTH+1 characters long!               */
 /* Note that if _USE_LFN_DBCS is set, this value    */
 /* represents the characters needed, not bytes      */
+#ifdef CONFIG_LCD_DISPLAY
+#define _MAX_LFN_LENGTH 32
+#else
 #define _MAX_LFN_LENGTH 20
+#endif
 
 /* When _USE_LFN_DBCS is set to 1, FILINFO.lfn will contain a DBCS string, not
 /  a simple ASCII string  */

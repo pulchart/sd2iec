@@ -1115,6 +1115,30 @@ uint8_t fat_delete(path_t *path, cbmdirent_t *dent) {
     return 255;
 }
 
+#ifdef CONFIG_LCD_DISPLAY
+/* Show the long file name of a mounted image, the 8.3 name if there is none */
+static void fat_show_image(path_t *path, cbmdirent_t *dent) {
+  DIR dh;
+  FILINFO finfo;
+
+  finfo.lfn = ops_scratch;
+  if (l_opendir(&partition[path->part].fatfs, path->dir.fat, &dh) == FR_OK) {
+    while (f_readdir(&dh, &finfo) == FR_OK && finfo.fname[0]) {
+      if (!ustrcmp(finfo.fname, dent->pvt.fat.realname)) {
+        if (finfo.lfn[0]) {
+          DS_CD(finfo.lfn);
+          return;
+        }
+        break;
+      }
+    }
+  }
+  DS_CD(dent->pvt.fat.realname);
+}
+#else
+#define fat_show_image(path, dent) do { } while (0)
+#endif
+
 /**
  * fat_chdir - change directory in FAT and/or mount image
  * @path: path object for the location of dirname
@@ -1195,7 +1219,7 @@ uint8_t fat_chdir(path_t *path, cbmdirent_t *dent) {
           partition[path->part].fop = &d64ops;
         }
 
-      DS_CD(dent->name);
+      fat_show_image(path, dent);
 
       return 0;
     }
