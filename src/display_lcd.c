@@ -109,7 +109,7 @@ void lcd_clrline(int line)
 	{
 		lcd_gotoxy(0,line);
 
-		for (int i=0; i < MAXLINELENGHT; i++)
+		for (int i=0; i < LCD_DISP_LENGTH; i++)
 		{
     		lcd_putc(0x20);
 		}

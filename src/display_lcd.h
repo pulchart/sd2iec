@@ -30,8 +30,6 @@
 #include "dirent.h"
 #include "lcd.h"
 
-#define MAXLINELENGHT 20
-
 #define DS_INIT()     lcd_init(LCD_DISP_ON)
 #define DS_BOOT()     lcd_boot()
 #define DS_READY()    lcd_ready(device_address)
