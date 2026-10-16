@@ -27,7 +27,7 @@ A dimmed OLED lights up on a change of content. The first press of Next, Prev or
 
 ## Programming
 
-ATmega1284P with a USBasp programmer, `larsp-lcd` as the example. Fuses (from `scripts/avr/variables.mk`): efuse 0xFD, hfuse 0xD2, lfuse 0xE7. Check them with:
+ATmega1284P with a USBasp programmer, `larsp-oled` as the example. Fuses (from `scripts/avr/variables.mk`): efuse 0xFD, hfuse 0xD2, lfuse 0xE7. Check them with:
 
 ```
 avrdude -c usbasp -P usb -p m1284p \
@@ -42,7 +42,7 @@ Every update needs the programmer. avrdude erases the whole chip.
 
 ```
 avrdude -c usbasp -P usb -p m1284p \
-  -U flash:w:dist/sd2iec-1.186.3-jpu-m1284p-larsp-lcd.bin:r \
+  -U flash:w:dist/sd2iec-1.186.3-jpu-m1284p-larsp-oled.bin:r \
   -U efuse:w:0xFD:m \
   -U hfuse:w:0xD2:m \
   -U lfuse:w:0xE7:m
@@ -52,7 +52,7 @@ Fuses already set, firmware only:
 
 ```
 avrdude -c usbasp -P usb -p m1284p \
-  -U flash:w:dist/sd2iec-1.186.3-jpu-m1284p-larsp-lcd.bin:r
+  -U flash:w:dist/sd2iec-1.186.3-jpu-m1284p-larsp-oled.bin:r
 ```
 
 ### With bootloader
@@ -74,7 +74,7 @@ To write the firmware with the programmer and keep the bootloader, add `-D`:
 
 ```
 avrdude -c usbasp -P usb -p m1284p -D \
-  -U flash:w:dist/sd2iec-1.186.3-jpu-m1284p-larsp-lcd.bin:r
+  -U flash:w:dist/sd2iec-1.186.3-jpu-m1284p-larsp-oled.bin:r
 ```
 
 ## Build
@@ -82,10 +82,10 @@ avrdude -c usbasp -P usb -p m1284p -D \
 Needs `avr-gcc` and `avr-libc`. One config:
 
 ```
-make CONFIG=configs/config-larsp-lcd
+make CONFIG=configs/config-larsp-oled
 ```
 
-The binary is `obj-m1284p-larsp-lcd/sd2iec.bin`. All configs, into `dist/` as `sd2iec-<version>-<mcu>-<config>.bin`, for example `sd2iec-1.186.3-jpu-m1284p-larsp-lcd.bin`:
+The binary is `obj-m1284p-larsp-oled/sd2iec.bin`. All configs, into `dist/` as `sd2iec-<version>-<mcu>-<config>.bin`, for example `sd2iec-1.186.3-jpu-m1284p-larsp-oled.bin`:
 
 ```
 make dist
@@ -108,9 +108,9 @@ The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for exampl
 
 | Where | Example |
 |---|---|
-| Error channel (`UI`) | `SD2IEC V1.186.3-JPU+LCD` |
+| Error channel (`UI`) | `SD2IEC V1.186.3-JPU+OLED` |
 | LCD line 1 | `SD2IEC 1.186.3` |
-| File name | `sd2iec-1.186.3-jpu-m1284p-larsp-lcd.bin` |
+| File name | `sd2iec-1.186.3-jpu-m1284p-larsp-oled.bin` |
 
 The version is set in `version.mk`. The boot loader flashes every build.
 
