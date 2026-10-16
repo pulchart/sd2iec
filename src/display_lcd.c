@@ -31,6 +31,9 @@
 
 static uint8_t lcdcontrast;  // andi6510: LCD contrast setting
 
+/* Suppress directory, error and READY updates while an image is exchanged */
+static uint8_t hold;
+
 #ifdef CONFIG_LCD_WS0010
 #define DIM_AFTER MS_TO_TICKS(45000)
 
@@ -189,7 +192,7 @@ static void lcd_logo(void)
 
 void lcd_ready(uint8_t dev_addr)
 {
-	if (lcd_controller_type() != 0)
+	if (lcd_controller_type() != 0 && !hold)
 	{
 		lcd_activity();
 		lcd_clrline(1);
@@ -230,11 +233,19 @@ void lcd_path(const char *fs_path)
 	lcd_show_name(0, 'D', fs_path);
 }
 
+void lcd_hold(uint8_t on)
+{
+	hold = on;
+}
+
 /* Show the current FAT directory, a mounted image keeps its name */
 void lcd_cdir(path_t *path)
 {
 	uint8_t lbl[34];
 	uint8_t n;
+
+	if (hold)
+		return;
 
 	if (path->part != current_part || partition[path->part].fop != &fatops)
 		return;
@@ -346,6 +357,9 @@ void lcd_error(const uint8_t *msg)
 {
 	char buf[SCROLL_MAX + 1];
 	uint8_t i;
+
+	if (hold)
+		return;
 
 	for (i = 0; i < SCROLL_MAX && msg[i] && msg[i] != 13; i++)
 		buf[i] = msg[i];

@@ -28,6 +28,7 @@
 #include "config.h"
 #include "buffers.h"
 #include "display.h"
+#include "display_lcd.h"
 #include "doscmd.h"
 #include "errormsg.h"
 #include "fatops.h"
@@ -186,11 +187,14 @@ static bool mount_line(void) {
   olderror = current_error;
   current_error = ERROR_OK;
 
+  DS_HOLD(1);
   if (partition[swappath.part].fop != &fatops)
     image_unmount(swappath.part);
 
-  if (current_error != ERROR_OK)
+  if (current_error != ERROR_OK) {
+    DS_HOLD(0);
     return false;
+  }
 
   /* Start in the partition+directory of the swap list */
   current_part = swappath.part;
@@ -210,8 +214,18 @@ static bool mount_line(void) {
 
   /* parse and change */
   do_chdir(buffer_start);
+  DS_HOLD(0);
 
   bool success = current_error == ERROR_OK;
+#ifdef CONFIG_LCD_DISPLAY
+  if (!success) {
+    path_t dirpath;
+
+    dirpath.part    = current_part;
+    dirpath.dir.fat = partition[current_part].current_dir.fat;
+    DS_CDIR(&dirpath);
+  }
+#endif
   set_error(olderror);
 
   return success;
@@ -339,6 +353,7 @@ void change_disk(void) {
   path_t path;
 
   if (swaplist.fs == NULL) {
+    DS_HOLD(1);
     /* No swaplist active, try using AUTOSWAP.LST */
     /* change_disk is called from the IEC idle loop, so ops_scratch is free */
     ustrcpy_P(ops_scratch, autoswap_lst_name);
@@ -364,12 +379,14 @@ void change_disk(void) {
 
       /* reset error and exit */
       set_error(ERROR_OK);
+      DS_HOLD(0);
       reset_key(0xff); // <- lazy
       return;
     } else {
       /* Autoswaplist found, mark it as active                */
       /* and exit because the first image is already mounted. */
       globalflags |= AUTOSWAP_ACTIVE;
+      DS_HOLD(0);
       reset_key(0xff); // <- lazy
       return;
     }

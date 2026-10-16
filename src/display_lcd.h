@@ -38,6 +38,7 @@
 #define DS_SAVE(A)    lcd_show_name(1, 'S', (const char *)(A))
 #define DS_CD(A)      lcd_path((const char *)(A))
 #define DS_CDIR(A)    lcd_cdir(A)
+#define DS_HOLD(A)    lcd_hold(A)
 #define DS_TICK()     lcd_scroll_poll()
 #ifdef CONFIG_LCD_WS0010
 #define DS_WAKE()     lcd_wake()
@@ -52,6 +53,7 @@ void lcd_ready(uint8_t device);
 void lcd_error(const uint8_t *msg);
 void lcd_path(const char *path);
 void lcd_cdir(path_t *path);
+void lcd_hold(uint8_t on);
 void lcd_show_name(uint8_t line, char tag, const char *name);
 void lcd_scroll_poll(void);
 uint8_t lcd_xcommand(uint8_t *cmd);
@@ -66,6 +68,7 @@ uint8_t lcd_xcommand(uint8_t *cmd);
 #define DS_SAVE(A)    do { } while (0)
 #define DS_CD(A)      do { } while (0)
 #define DS_CDIR(A)    do { } while (0)
+#define DS_HOLD(A)    do { } while (0)
 #define DS_TICK()     do { } while (0)
 #define DS_WAKE()     0
 
