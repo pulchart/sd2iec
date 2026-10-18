@@ -1,4 +1,4 @@
-# sd2iec with LCD display support
+# sd2iec with LCD and OLED display support
 
 sd2iec firmware with support for parallel HD44780 and ST7036 character LCDs and WS0010 OLED displays. The default branch `lcd` combines these repositories:
 
