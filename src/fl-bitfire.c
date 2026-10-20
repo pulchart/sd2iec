@@ -534,7 +534,7 @@ static uint8_t load_file(session_t *s, uint8_t file) {
 
       /* payload bytes are sent in reverse order */
       for (i = s->offset + blen - 1;; i--) {
-        if (clocked_write_byte(buf->data[i], NULL, 1000))
+        if (clocked_write_byte(buf->data[i], NULL, 2000))
           return 1; // timeout
         s->file_crc = crc16_update(s->file_crc, buf->data[i]);
         if (i == s->offset)
