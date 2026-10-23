@@ -13,11 +13,11 @@ sw2 (Shadowolf sd2iec 1.x), variant 5:
 evo2, config evo2-lcd, variant 11:
   RS PB0, RW PB1, E PB2, DB4-DB7 PC4-PC7
 
-Only larsp-lcd, larsp-oled and evo2-lcd have configuration files. For
+Only larsp-lcd, larsp-oled, evo2-lcd and evo2-oled have configuration files. For
 other boards add the pins to src/lcd.h and set CONFIG_LCD_DISPLAY=y.
 
-WS0010 OLED (Winstar WEH001602A and similar), config larsp-oled:
-  Same pins as larsp, CONFIG_LCD_WS0010=y. The module has a 16 pin
+WS0010 OLED (Winstar WEH001602A and similar), configs larsp-oled and evo2-oled:
+  Same pins as larsp or evo2, CONFIG_LCD_WS0010=y. The module has a 16 pin
   interface in the order of an HD44780 display: 1 VSS, 2 VDD, 3 NC
   (no contrast pin), 4 RS, 5 R/W, 6 E, 7-14 DB0-DB7, 15 and 16 NC
   (no backlight pins). Supply is 5 V (4.8 V to 5.3 V), about 31 mA

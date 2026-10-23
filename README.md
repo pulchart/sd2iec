@@ -10,7 +10,7 @@ LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, wi
 
 ## What is added
 
-- Support for WS0010 OLED displays: config `larsp-oled` (MMC2IEC with a module such as the Winstar WEH001602A), dimming after inactivity
+- Support for WS0010 OLED displays: configs `larsp-oled` (MMC2IEC) and `evo2-oled` (evo2) for a module such as the Winstar WEH001602A, dimming after inactivity
 - Scrolling of names longer than the display, the long file name of a mounted image
 
 ## Display
@@ -19,7 +19,7 @@ Line 1 shows the directory or the mounted image, line 2 the loaded or saved file
 
 | | LCD (HD44780, ST7036) | OLED (WS0010) |
 |---|---|---|
-| Configs | `larsp-lcd`, `evo2-lcd` | `larsp-oled` |
+| Configs | `larsp-lcd`, `evo2-lcd` | `larsp-oled`, `evo2-oled` |
 | Scroll step | 700 ms | 300 ms |
 | Dimming | no | after 45 seconds without a change |
 
