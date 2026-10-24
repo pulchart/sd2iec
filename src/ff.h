@@ -79,7 +79,9 @@
 /* _MAX_LFN_LENGTH+1 characters long!               */
 /* Note that if _USE_LFN_DBCS is set, this value    */
 /* represents the characters needed, not bytes      */
-#ifdef CONFIG_LCD_DISPLAY
+#ifdef CONFIG_XE5
+#define _MAX_LFN_LENGTH 45
+#elif defined(CONFIG_LCD_DISPLAY)
 #define _MAX_LFN_LENGTH 32
 #else
 #define _MAX_LFN_LENGTH 20

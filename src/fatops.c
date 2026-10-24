@@ -279,6 +279,222 @@ static void pet2asc(uint8_t *buf) {
   }
 }
 
+#ifdef CONFIG_XE5
+/* Longest long name used by the modes before 5, longer ones show their 8.3 name */
+#ifdef CONFIG_LCD_DISPLAY
+#define LFN_LEGACY_MAX 32
+#else
+#define LFN_LEGACY_MAX 20
+#endif
+
+/* Longest encoded name in extension mode 5, a type suffix comes on top */
+#define XE5_NAME_MAX 41
+
+/* Buffer for the FAT name in extension mode 5: name, ".PRG" or "{}", NUL */
+static uint8_t xe5_name[XE5_NAME_MAX + 5];
+
+static const PROGMEM char devnames[] = "CONPRNAUXNULCOMLPT";
+
+/* Convert a hex digit to its value, returns false if it is none */
+static bool hex2bin(uint8_t c, uint8_t *out) {
+  if (c >= '0' && c <= '9')
+    *out = c - '0';
+  else if (c >= 'A' && c <= 'F')
+    *out = c - 'A' + 10;
+  else if (c >= 'a' && c <= 'f')
+    *out = c - 'a' + 10;
+  else
+    return false;
+
+  return true;
+}
+
+/* Convert the value of a nibble to a hex digit */
+static uint8_t bin2hex(uint8_t n) {
+  return n < 10 ? '0' + n : 'A' - 10 + n;
+}
+
+/* Check if the first len characters are a DOS device name, with or without extension */
+static bool is_reserved_name(const uint8_t *name, uint8_t len) {
+  uint8_t i, base;
+
+  for (base = 0; base < len && base < 5 && name[base] != '.'; base++) ;
+
+  if (base != 3 && base != 4)
+    return false;
+
+  for (i = 0; i < 6; i++) {
+    if (memcmp_P(name, devnames + 3 * i, 3))
+      continue;
+
+    /* CON, PRN, AUX, NUL have three characters, COMn and LPTn have four */
+    if (i < 4)
+      return base == 3;
+
+    return base == 4 && name[3] >= '1' && name[3] <= '9';
+  }
+
+  return false;
+}
+
+/* Check if the first len characters of name end in .PRG, .SEQ, .USR or .REL */
+static bool ends_with_type_ext(const uint8_t *name, uint8_t len) {
+  uint8_t t;
+
+  if (len < 4 || name[len - 4] != '.')
+    return false;
+
+  for (t = TYPE_SEQ; t <= TYPE_REL; t++)
+    if (!memcmp_P(name + len - 3, filetypes + TYPE_LENGTH * t, TYPE_LENGTH))
+      return true;
+
+  return false;
+}
+
+/**
+ * encode_xe5 - encode a PETSCII name as FAT name for extension mode 5
+ * @pet: PETSCII name
+ *
+ * This function stores the name in xe5_name. Characters that FAT can't hold
+ * (codes below 32 or above 95, :/\*"<>?, a leading dot, a trailing dot or
+ * space) become two hex digits enclosed in curly braces, one pair of braces
+ * covers a run of such characters. Trailing shifted spaces are dropped and a
+ * DOS device name gets an empty "{}" prefix. Returns the length of the
+ * encoded name, 0 if nothing is left of the name.
+ */
+static uint8_t encode_xe5(const uint8_t *pet) {
+  uint8_t n = ustrlen(pet);
+  uint8_t i = 0;
+  uint8_t k, p;
+  bool esc = false;
+
+  while (n && pet[n-1] == 0xa0)
+    n--;
+
+  if (is_reserved_name(pet, n)) {
+    xe5_name[i++] = '{';
+    xe5_name[i++] = '}';
+  }
+
+  for (k = 0; k < n; k++) {
+    p = pet[k];
+
+    if (p < 32 || p >= 96 || p == ':' || p == '/' || p == '\\' || p == '*' ||
+        p == '"' || p == '<' || p == '>' || p == '?' ||
+        (k == 0 && p == '.') || (k == n-1 && (p == '.' || p == ' '))) {
+      /* leave room for the closing brace */
+      if (i + (esc ? 3 : 4) > XE5_NAME_MAX)
+        break;
+
+      if (!esc) {
+        xe5_name[i++] = '{';
+        esc = true;
+      }
+      xe5_name[i++] = bin2hex(p >> 4);
+      xe5_name[i++] = bin2hex(p & 15);
+    } else {
+      if (i + (esc ? 2 : 1) > XE5_NAME_MAX)
+        break;
+
+      if (esc) {
+        xe5_name[i++] = '}';
+        esc = false;
+      }
+      xe5_name[i++] = p;
+    }
+  }
+
+  if (esc)
+    xe5_name[i++] = '}';
+
+  xe5_name[i] = 0;
+  return n ? i : 0;
+}
+
+/**
+ * add_xe5_suffix - append the type suffix to the name in xe5_name
+ * @len : length of the name
+ * @type: file type, 0 for none
+ *
+ * A name that ends like a type suffix gets an empty "{}" appended if no
+ * suffix is added, so it is not taken for a file name with hidden extension.
+ */
+static void add_xe5_suffix(uint8_t len, uint8_t type) {
+  if (type) {
+    xe5_name[len++] = '.';
+    memcpy_P(xe5_name + len, filetypes + TYPE_LENGTH * (type & EXT_TYPE_MASK), TYPE_LENGTH);
+    len += TYPE_LENGTH;
+  } else if (ends_with_type_ext(xe5_name, len)) {
+    xe5_name[len++] = '{';
+    xe5_name[len++] = '}';
+  }
+  xe5_name[len] = 0;
+}
+
+/* Decode a mode 5 name, out may be NULL or equal to in, returns the decoded length */
+static uint8_t decode_xe5(const uint8_t *in, uint8_t *out) {
+  uint8_t len = 0;
+  uint8_t hi, lo, ch;
+  bool esc = false;
+
+  while (*in) {
+    if (*in == '{') {
+      esc = true;
+      in++;
+    }
+
+    if (esc) {
+      /* an escape cut off by the end of the name is dropped */
+      if (!in[0] || !in[1])
+        break;
+
+      if (hex2bin(in[0], &hi) && hex2bin(in[1], &lo)) {
+        ch = (hi << 4) | lo;
+        in += 2;
+        if (out)
+          out[len] = ch;
+        len++;
+        continue;
+      }
+      esc = false;
+    }
+
+    if (*in == '}')
+      in++;
+    else {
+      if (out)
+        out[len] = toupper(*in);
+      len++;
+      in++;
+    }
+  }
+
+  if (out)
+    out[len] = 0;
+
+  return len;
+}
+
+/**
+ * fat_to_petscii - decode a FAT name of extension mode 5 to PETSCII
+ * @name: name to be decoded in-place
+ *
+ * This function replaces the {HH} escapes by the characters they stand for,
+ * drops empty braces and converts all other characters to upper case.
+ */
+void fat_to_petscii(uint8_t *name) {
+  decode_xe5(name, name);
+}
+
+/**
+ * fat_petscii_length - get the length of a decoded name of extension mode 5
+ * @name: name to be measured
+ */
+uint8_t fat_petscii_length(const uint8_t *name) {
+  return decode_xe5(name, NULL);
+}
+#endif /* CONFIG_XE5 */
+
 /**
  * is_valid_fat_char - checks if a character is valid on FAT
  * @c: character to check
@@ -333,14 +549,40 @@ static bool is_valid_fat_name(const uint8_t *name) {
 /**
  * build_name - convert PETSCII file name to valid FAT name
  * @name: pointer to a PETSCII file name to be converted
- * @type: file type
+ * @type: file type, 0 for none
+ * @how : BN_CREATE, BN_RENAME or BN_X00RENAME
  *
  * This function converts a PETSCII file name to a suitable
- * FAT file name in-place. Returns a pointer to the last
- * character of the PC64 file extension if it was
+ * FAT file name in-place, the buffer must hold the encoded name
+ * and its suffix. A renamed file never gets an x00 name, the name
+ * is empty on return if it is not valid. Returns a pointer to
+ * the last character of the PC64 file extension if it was
  * created or NULL if not.
  */
-static uint8_t* build_name(uint8_t *name, uint8_t type) {
+#define BN_CREATE    0
+#define BN_RENAME    1
+#define BN_X00RENAME 2
+
+static uint8_t* build_name(uint8_t *name, uint8_t type, uint8_t how) {
+#ifdef CONFIG_XE5
+  if (file_extension_mode == 5 && how != BN_X00RENAME) {
+    uint8_t len = encode_xe5(name);
+
+#ifdef CONFIG_M2I
+    if (type == TYPE_RAW)
+      type = 0;
+#endif
+    if (type == TYPE_PRG && should_save_raw(xe5_name))
+      type = 0;
+
+    if (len)
+      add_xe5_suffix(len, type);
+
+    ustrcpy(name, xe5_name);
+    return NULL;
+  }
+#endif
+
   /* convert to PETSCII */
   pet2asc(name);
 
@@ -355,19 +597,24 @@ static uint8_t* build_name(uint8_t *name, uint8_t type) {
     return NULL;
 
   /* PC64 mode or invalid FAT name? */
-  if ((file_extension_mode == 1 && type != TYPE_PRG) ||
-      file_extension_mode == 2 ||
-      !is_valid_fat_name(name)) {
+  if (how != BN_RENAME &&
+      ((file_extension_mode == 1 && type != TYPE_PRG) ||
+       file_extension_mode == 2 || how == BN_X00RENAME ||
+       !is_valid_fat_name(name))) {
 
       uint8_t *x00ext = NULL;
+      uint8_t len = 0;
 
       /* Append .[PSUR]00 suffix to the file name */
       while (*name) {
-        if (is_valid_fat_char(*name)) {
+        if (is_valid_fat_char(*name) && *name != '.') {
           name++;
         } else {
           *name++ = '_';
         }
+        /* the name part of an x00 file has at most 8 characters */
+        if (++len == 8)
+          break;
       }
       *name++ = '.';
       *name++ = pgm_read_byte(filetypes+3*type);
@@ -377,6 +624,11 @@ static uint8_t* build_name(uint8_t *name, uint8_t type) {
       *name   = 0;
 
       return x00ext;
+  }
+
+  if (!is_valid_fat_name(name)) {
+    *name = 0;
+    return NULL;
   }
 
   /* type-suffix mode? */
@@ -749,8 +1001,14 @@ FRESULT create_file(path_t *path, cbmdirent_t *dent, uint8_t type, buffer_t *buf
 #endif
   {
     ustrcpy(ops_scratch, dent->name);
-    x00ext = build_name(ops_scratch, type);
+    x00ext = build_name(ops_scratch, type, BN_CREATE);
     name = ops_scratch;
+
+#ifdef CONFIG_XE5
+    /* nothing is left of a name that consists of padding only */
+    if (file_extension_mode == 5 && !*name)
+      return FR_INVALID_NAME;
+#endif
   }
 
   partition[path->part].fatfs.curr_dir = path->dir.fat;
@@ -925,6 +1183,10 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   FILINFO finfo;
   uint8_t *ptr,*nameptr;
   uint8_t typechar;
+#ifdef CONFIG_XE5
+  uint8_t rawtype = 0;
+  bool hidden;
+#endif
 
   finfo.lfn = ops_scratch;
 
@@ -948,24 +1210,71 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   /* Copy name */
   ustrcpy(dent->pvt.fat.realname, finfo.fname);
 
+#ifdef CONFIG_XE5
+  /* Mode 5 accepts all long names that fit into the buffer */
+  if (!finfo.lfn[0] ||
+      ustrlen(finfo.lfn) > (file_extension_mode == 5 ? _MAX_LFN_LENGTH : CBM_NAME_LENGTH+4)) {
+#else
   if (!finfo.lfn[0] || ustrlen(finfo.lfn) > CBM_NAME_LENGTH+4) {
+#endif
     nameptr = finfo.fname;
   } else {
-    /* Convert only LFNs to PETSCII, 8.3 are always upper-case */
     nameptr = finfo.lfn;
-    asc2pet(nameptr);
   }
+
+#ifdef CONFIG_XE5
+  /* A name that starts with an escape is not hidden */
+  hidden = *nameptr == '.';
+
+
+  if (file_extension_mode == 5) {
+    /* Find the type extension before the decoding drops a trailing "{}" */
+    uint8_t len = ustrlen(nameptr);
+
+    if (len >= 4 && nameptr[len-4] == '.') {
+      for (uint8_t t = TYPE_SEQ; t <= TYPE_REL; t++) {
+        const uint8_t *tp = filetypes + TYPE_LENGTH * t;
+        if (toupper(nameptr[len-3]) == pgm_read_byte(tp) &&
+            toupper(nameptr[len-2]) == pgm_read_byte(tp+1) &&
+            toupper(nameptr[len-1]) == pgm_read_byte(tp+2)) {
+          rawtype = pgm_read_byte(tp);
+          break;
+        }
+      }
+    }
+    fat_to_petscii(nameptr);
+  } else
+#endif
+  if (nameptr == finfo.lfn)
+    /* Convert only LFNs to PETSCII, 8.3 are always upper-case */
+    asc2pet(nameptr);
 
   /* File type */
   if (finfo.fattrib & AM_DIR) {
     dent->typeflags = TYPE_DIR;
     /* Hide directories starting with . */
+#ifdef CONFIG_XE5
+    if (hidden)
+#else
     if (*nameptr == '.')
+#endif
       dent->typeflags |= FLAG_HIDDEN;
 
   } else {
     /* Search for the file extension */
     exttype_t ext = check_extension(finfo.fname, &ptr);
+
+#ifdef CONFIG_XE5
+    /* Mode 5 takes the type from the stored long name, the 8.3 name keeps only three characters */
+    if (file_extension_mode == 5 && ext != EXT_IS_X00) {
+      ext = EXT_UNKNOWN;
+      if (rawtype) {
+        ext = EXT_IS_TYPE;
+        ptr = &rawtype;
+      }
+    }
+#endif
+
     if (ext == EXT_IS_X00) {
       /* [PSRU]00 file - try to read the internal name */
       uint8_t *name = p00cache_lookup(dh->part, finfo.clust);
@@ -1040,14 +1349,30 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   if (dent->opstype != OPSTYPE_FAT_X00) {
     if (ustrlen(nameptr) > CBM_NAME_LENGTH) {
       ustrcpy(dent->name, finfo.fname);
+#ifdef CONFIG_XE5
+      nameptr = finfo.fname;
+#endif
     } else {
       ustrcpy(dent->name, nameptr);
     }
 
-    ptr = dent->name;
-    while (*ptr) {
-      if (*ptr == '~') *ptr = 0xff;
-      ptr++;
+#ifdef CONFIG_XE5
+    if (file_extension_mode == 5) {
+      /* Trailing shifted spaces are padding, same as in d64 */
+      uint8_t len = ustrlen(dent->name);
+      while (len && dent->name[len-1] == 0xa0)
+        dent->name[--len] = 0;
+    }
+
+    /* A decoded name has no tilde, only the 8.3 name can */
+    if (file_extension_mode != 5 || nameptr == finfo.fname)
+#endif
+    {
+      ptr = dent->name;
+      while (*ptr) {
+        if (*ptr == '~') *ptr = 0xff;
+        ptr++;
+      }
     }
   }
 
@@ -1125,7 +1450,11 @@ static void fat_show_image(path_t *path, cbmdirent_t *dent) {
   if (l_opendir(&partition[path->part].fatfs, path->dir.fat, &dh) == FR_OK) {
     while (f_readdir(&dh, &finfo) == FR_OK && finfo.fname[0]) {
       if (!ustrcmp(finfo.fname, dent->pvt.fat.realname)) {
+#ifdef CONFIG_XE5
+        if (finfo.lfn[0] && ustrlen(finfo.lfn) <= LFN_LEGACY_MAX) {
+#else
         if (finfo.lfn[0]) {
+#endif
           DS_CD(finfo.lfn);
           return;
         }
@@ -1232,7 +1561,19 @@ void fat_mkdir(path_t *path, uint8_t *dirname) {
   FRESULT res;
 
   partition[path->part].fatfs.curr_dir = path->dir.fat;
-  pet2asc(dirname);
+#ifdef CONFIG_XE5
+  if (file_extension_mode == 5) {
+    uint8_t len = encode_xe5(dirname);
+
+    if (!len) {
+      parse_error(FR_INVALID_NAME, 0);
+      return;
+    }
+    add_xe5_suffix(len, 0);
+    dirname = xe5_name;
+  } else
+#endif
+    pet2asc(dirname);
   res = f_mkdir(&partition[path->part].fatfs, dirname);
   parse_error(res,0);
 }
@@ -1315,10 +1656,20 @@ uint8_t fat_getdirlabel(path_t *path, uint8_t *label) {
         if(finfo.fname[0] == '\0')
           break;
         if (finfo.clust == path->dir.fat) {
-          if(!*name)
+#ifdef CONFIG_XE5
+          if (!*name || (file_extension_mode != 5 && ustrlen(name) > LFN_LEGACY_MAX))
+            name = finfo.fname;
+          else if (file_extension_mode != 5)
+            asc2pet(name);
+
+          if (file_extension_mode == 5)
+            fat_to_petscii(name);
+#else
+          if (!*name)
             name = finfo.fname;
           else
             asc2pet(name);
+#endif
           break;
         }
       }
@@ -1326,8 +1677,18 @@ uint8_t fat_getdirlabel(path_t *path, uint8_t *label) {
     }
   }
 
+#ifdef CONFIG_XE5
+  if (*name) {
+    uint8_t len = ustrlen(name);
+
+    if (len > LFN_LEGACY_MAX)
+      len = LFN_LEGACY_MAX;
+    memcpy(label, name, len);
+  }
+#else
   if (*name)
     memcpy(label, name, ustrlen(name));
+#endif
 
   if (res == FR_OK)
     return 0;
@@ -1467,6 +1828,16 @@ void fat_write_sector(buffer_t *buf, uint8_t part, uint8_t track, uint8_t sector
 }
 
 
+/* Check that the new name fits into the work buffers, sets an error if not */
+static bool rename_name_fits(const uint8_t *newname) {
+  if (ustrlen(newname) > CBM_NAME_LENGTH) {
+    set_error(ERROR_SYNTAX_TOOLONG);
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * fat_rename - rename a file
  * @path   : path object
@@ -1480,11 +1851,18 @@ void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
   uint8_t *ext;
   FRESULT res;
   UINT byteswritten;
+  exttype_t exttype;
 
   partition[path->part].fatfs.curr_dir = path->dir.fat;
 
   if (dent->opstype == OPSTYPE_FAT_X00) {
-    /* [PSUR]00 rename, just change the internal file name */
+    uint8_t *x00ext;
+    FILINFO finfo;
+
+    /* [PSUR]00 rename, change the internal file name and the file name */
+    if (!rename_name_fits(newname))
+      return;
+
     p00cache_invalidate();
 
     res = f_open(&partition[path->part].fatfs, &partition[path->part].imagehandle,
@@ -1515,26 +1893,80 @@ void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
       parse_error(res,0);
       return;
     }
-  } else {
-    switch (check_extension(dent->pvt.fat.realname, &ext)) {
-    case EXT_IS_TYPE:
-      /* Keep type extension */
-      ustrcpy(ops_scratch, newname);
-      build_name(ops_scratch, dent->typeflags & TYPE_MASK);
-      res = f_rename(&partition[path->part].fatfs, dent->pvt.fat.realname, ops_scratch);
-      if (res != FR_OK)
-        parse_error(res, 0);
-      break;
 
-    default:
+    /* Rename the file to match the new name, unless it already does */
+    ustrcpy(ops_scratch, newname);
+    x00ext = build_name(ops_scratch, dent->typeflags & TYPE_MASK, BN_X00RENAME);
+    if (x00ext == NULL || !strcasecmp((char *)ops_scratch, (char *)dent->pvt.fat.realname))
+      return;
+
+    res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
+    while (res == FR_OK) {
+      /* File exists, increment extension */
+      *x00ext += 1;
+      if (*x00ext == '9'+1) {
+        *x00ext = '0';
+        *(x00ext-1) += 1;
+        if (*(x00ext-1) == '9'+1)
+          break;
+      }
+
+      res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
+    }
+
+    /* No free extension left, the file keeps its name */
+    if (res == FR_OK)
+      return;
+
+    res = f_rename(&partition[path->part].fatfs, dent->pvt.fat.realname, ops_scratch);
+    if (res != FR_OK)
+      parse_error(res, 0);
+  } else {
+#ifdef CONFIG_XE5
+    /* A directory is no file with a type extension */
+    if (file_extension_mode == 5 && (dent->typeflags & TYPE_MASK) == TYPE_DIR)
+      exttype = EXT_UNKNOWN;
+    else
+#endif
+      exttype = check_extension(dent->pvt.fat.realname, &ext);
+
+    if (exttype == EXT_IS_TYPE) {
+      /* Keep type extension */
+      if (!rename_name_fits(newname))
+        return;
+
+      ustrcpy(ops_scratch, newname);
+      build_name(ops_scratch, dent->typeflags & TYPE_MASK, BN_RENAME);
+      if (!*ops_scratch) {
+        set_error_ts(ERROR_SYNTAX_JOKER,0,0);
+        return;
+      }
+
+      res = f_rename(&partition[path->part].fatfs, dent->pvt.fat.realname, ops_scratch);
+#ifdef CONFIG_XE5
+    } else if (file_extension_mode == 5) {
+      /* Encoded name without type extension */
+      if (!rename_name_fits(newname))
+        return;
+
+      ustrcpy(ops_scratch, newname);
+      build_name(ops_scratch, 0, BN_RENAME);
+      if (!*ops_scratch) {
+        set_error_ts(ERROR_SYNTAX_JOKER,0,0);
+        return;
+      }
+
+      res = f_rename(&partition[path->part].fatfs, dent->pvt.fat.realname, ops_scratch);
+#endif
+    } else {
       /* Normal rename */
       pet2asc(dent->name);
       pet2asc(newname);
       res = f_rename(&partition[path->part].fatfs, dent->name, newname);
-      if (res != FR_OK)
-        parse_error(res, 0);
-      break;
     }
+
+    if (res != FR_OK)
+      parse_error(res, 0);
   }
 }
 
@@ -1823,6 +2255,9 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
   uint8_t  imagetype;
   uint8_t  *ext;
   uint8_t  created = 0;
+#ifdef CONFIG_XE5
+  uint8_t  autoext = 0;
+#endif
   uint32_t fsize;
 
   /* The id is two characters, optionally followed by + or - */
@@ -1843,17 +2278,45 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
     *ext = '\0';
   } else {
     /* no extension provided; default to .d64 */
-    ext = ops_scratch + ustrlen(ops_scratch);
-    if (ext > ops_scratch + sizeof(ops_scratch) - 5)
-      ext = ops_scratch + sizeof(ops_scratch) - 5;
-    ustrcpy(ext, ".d64");
+#ifdef CONFIG_XE5
+    if (file_extension_mode != 5)
+#endif
+    {
+      ext = ops_scratch + ustrlen(ops_scratch);
+      if (ext > ops_scratch + sizeof(ops_scratch) - 5)
+        ext = ops_scratch + sizeof(ops_scratch) - 5;
+      ustrcpy(ext, ".d64");
+    }
     imagetype = IMG_IS_D41;
     ext = NULL;
+#ifdef CONFIG_XE5
+    autoext = 1;
+#endif
   }
 
   partition[path->part].fatfs.curr_dir = path->dir.fat;
   /* ops_scratch contains the filename for the image */
-  pet2asc(ops_scratch);
+#ifdef CONFIG_XE5
+  if (file_extension_mode == 5) {
+    uint8_t len = encode_xe5(ops_scratch);
+
+    if (!len) {
+      parse_error(FR_INVALID_NAME, 0);
+      return;
+    }
+
+    /* the encoded extension is already in place, the default is added after the name */
+    if (autoext) {
+      xe5_name[len++] = '.';
+      xe5_name[len++] = 'D';
+      xe5_name[len++] = '6';
+      xe5_name[len++] = '4';
+      xe5_name[len]   = 0;
+    }
+    ustrcpy(ops_scratch, xe5_name);
+  } else
+#endif
+    pet2asc(ops_scratch);
 
   res = f_open(&partition[path->part].fatfs,
                &partition[path->part].imagehandle,

@@ -47,6 +47,10 @@ int8_t   fat_readdir(dh_t *dh, cbmdirent_t *dent);
 void     fat_read_sector(buffer_t *buf, uint8_t part, uint8_t track, uint8_t sector);
 void     fat_write_sector(buffer_t *buf, uint8_t part, uint8_t track, uint8_t sector);
 void     fat_format_image(path_t *path, uint8_t *name, uint8_t *id);
+#ifdef CONFIG_XE5
+void     fat_to_petscii(uint8_t *name);
+uint8_t  fat_petscii_length(const uint8_t *name);
+#endif
 
 extern const fileops_t fatops;
 extern uint8_t file_extension_mode;

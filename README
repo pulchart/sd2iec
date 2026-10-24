@@ -298,6 +298,8 @@ Supported commands:
 - R
   Renaming files should work the same as it does on CMD drives, although
   the errors flagged for invalid characters in the name may differ.
+  Names that FAT can't store return 33,SYNTAX ERROR. On FAT the case of a
+  name can be changed.
 
 - S:
   Name matching is fully supported, directories are ignored.
@@ -383,9 +385,22 @@ Supported commands:
                2: Always write x00 format files.
                3: Use SEQ/USR/REL file extensions, no x00 header
                4: Same as 3, but also for PRG
-             If you set mode 3 or 4, extension hiding is automatically enabled.
-             This setting can be saved in the EEPROM using XW, the default
-             value is 1.
+               5: Same as 4, but characters FAT can't store are escaped
+                  (only in builds with CONFIG_XE5, not in the mini builds)
+             If you set mode 3, 4 or 5, extension hiding is automatically
+             enabled. This setting can be saved in the EEPROM using XW, the
+             default value is 1.
+
+             Mode 5 writes characters that FAT can't store as hex code in
+             curly braces: codes below 32 or above 95 (including shifted
+             letters), :/\*"<>?, a leading '.' and a trailing '.' or space.
+             A run of such characters shares one pair of braces, so the name
+             A/B is written as "A{2F}B". Directory listings show the decoded
+             name, in upper case if FAT stores it in lower case. Names are
+             case sensitive, trailing shifted spaces are dropped. DOS device
+             names (CON, PRN, AUX, NUL, COM1-9, LPT1-9) get an empty "{}"
+             prefix. A directory or a file without type extension whose name
+             ends in .PRG, .SEQ, .USR or .REL gets an empty "{}" appended.
 
              For compatibility with existing programs that write D64 files,
              PRG files that have D64, D41, D71, D81, DNP or M2I as an extension
@@ -880,10 +895,12 @@ x00 files:
 ==========
 P00/S00/U00/R00 files are transparently supported, that means they show
 up in the directory listing with their internal file name instead of the
-FAT file name. Renaming them only changes the internal name. The XE
-command defines if x00 extensions are used when writing files, by
-default sd2iec uses them for SEQ/USR/REL files but not for PRG.
+FAT file name. Renaming them changes the internal name and the FAT file
+name. The XE command defines if x00 extensions are used when writing
+files, by default sd2iec uses them for SEQ/USR/REL files but not for PRG.
 Parsing of x00 files is always enabled even when writing them is not.
+The FAT file name of a new x00 file has at most eight characters, characters
+FAT can't store and dots become '_'.
 
 x00 files are recognized by checking both the extension of the file
 (P/S/U/R with a two-digit suffix) and the header signature.

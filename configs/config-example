@@ -232,6 +232,10 @@ CONFIG_DISPLAY_BUFFER_SIZE=40
 # size of the [PSUR]00 name cache in bytes
 #CONFIG_P00CACHE_SIZE=32768
 
+# extension mode 5 of the XE command, escaped file names
+# (without it XE5 is refused and the name buffers are smaller)
+CONFIG_XE5=y
+
 # disable SD support
 # (the build system assumes that everything uses SD unless you enable this)
 #CONFIG_NO_SD=y

@@ -92,6 +92,30 @@ static uint8_t tolower_pet(uint8_t c) {
 }
 
 /**
+ * names_differ_in_case - check if two names differ only in letter case
+ * @a: first name
+ * @b: second name
+ *
+ * Returns 1 if the names are different but equal when the case is
+ * ignored, 0 otherwise.
+ */
+uint8_t names_differ_in_case(uint8_t *a, uint8_t *b) {
+  uint8_t differ = 0;
+
+  while (*a && *b) {
+    if (*a != *b) {
+      if (tolower_pet(*a) != tolower_pet(*b))
+        return 0;
+      differ = 1;
+    }
+    a++;
+    b++;
+  }
+
+  return differ && !*a && !*b;
+}
+
+/**
  * parse_partition - parse a partition number from a file name
  * @buf     : pointer to pointer to filename
  *
@@ -188,10 +212,25 @@ uint8_t match_name(uint8_t *matchstr, cbmdirent_t *dent, uint8_t ignorecase) {
       break;
     }
   }
+#ifdef CONFIG_XE5
+  if (*matchstr && *matchstr != '*' && chars_remain != 0) {
+    /* Mode 5 drops trailing shifted spaces of a name */
+    if (file_extension_mode != 5)
+      return 0;
+
+    while (*matchstr == 0xa0)
+      matchstr++;
+    if (*matchstr)
+      return 0;
+  }
+
+  return 1;
+#else
   if (*matchstr && *matchstr != '*' && chars_remain != 0)
     return 0;
   else
     return 1;
+#endif
 }
 
 /**
@@ -227,8 +266,13 @@ int8_t next_match(dh_t *dh, uint8_t *matchstr, date_t *start, date_t *end, uint8
       /* Skip if the name doesn't match */
       if (matchstr) {
         if (dent->opstype == OPSTYPE_FAT) {
+#ifdef CONFIG_XE5
+          /* FAT: Ignore case, except in mode 5 where shifted letters are names of their own */
+          if (!match_name(matchstr, dent, file_extension_mode != 5))
+#else
           /* FAT: Ignore case */
           if (!match_name(matchstr, dent, 1))
+#endif
             continue;
         } else {
           /* Honor case */

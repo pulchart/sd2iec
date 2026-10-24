@@ -2582,7 +2582,8 @@ FRESULT f_utime (
 /* Rename File/Directory                                                 */
 /*-----------------------------------------------------------------------*/
 
-FRESULT f_rename (
+static
+FRESULT f_rename_internal (
 #if _USE_DRIVE_PREFIX == 0
   FATFS *fs,              /* Pointer to file system object */
 #endif
@@ -2663,6 +2664,84 @@ FRESULT f_rename (
 #endif
 
   return sync(fs);
+}
+
+#if _USE_DRIVE_PREFIX == 0
+#define RENAME_FS fs,
+#else
+#define RENAME_FS
+#endif
+
+/* Convert a character to upper case */
+static UCHAR rename_upper (UCHAR c)
+{
+  return (c >= 'a' && c <= 'z') ? c - 0x20 : c;
+}
+
+/* Rename File/Directory, a change of the case of the name goes through a temporary name */
+FRESULT f_rename (
+#if _USE_DRIVE_PREFIX == 0
+  FATFS *fs,              /* Pointer to file system object */
+#endif
+  const UCHAR *path_old,   /* Pointer to the old name */
+  const UCHAR *path_new    /* Pointer to the new name */
+)
+{
+  static const PROGMEM char tmpname_P[] = "_TMPNAME.TMP";
+  const UCHAR *a = path_old;
+  const UCHAR *b = path_new;
+  const UCHAR *c;
+  const UCHAR *a0, *b0;
+  UCHAR tmpname[sizeof(tmpname_P)];
+  FILINFO finfo;
+  BYTE differ = 0;
+  FRESULT res;
+
+  /* Compare the last component of both paths */
+  for (c = a; *c; c++)
+    if (*c == '/') a = c + 1;
+  for (c = b; *c; c++)
+    if (*c == '/') b = c + 1;
+  a0 = a;
+  b0 = b;
+
+  while (*a && *b && rename_upper(*a) == rename_upper(*b)) {
+    if (*a != *b)
+      differ = 1;
+    a++;
+    b++;
+  }
+
+  if (*a || *b || !differ) {
+    res = f_rename_internal(RENAME_FS path_old, path_new);
+    if (res != FR_EXIST)
+      return res;
+
+    /* An existing name may be this very file, e.g. as its 8.3 or long name */
+    if (!*a && !*b)
+      return res;
+    if ((a0 - path_old) != (b0 - path_new) || memcmp(path_old, path_new, a0 - path_old))
+      return res;
+    finfo.lfn = NULL;
+    if (f_stat(RENAME_FS path_old, &finfo) != FR_OK)
+      return res;
+    strcpy((char *)tmpname, (const char *)finfo.fname);
+    if (f_stat(RENAME_FS path_new, &finfo) != FR_OK ||
+        strcmp((const char *)tmpname, (const char *)finfo.fname))
+      return res;
+  }
+
+  memcpy_P(tmpname, tmpname_P, sizeof(tmpname));
+  res = f_rename_internal(RENAME_FS path_old, tmpname);
+  if (res != FR_OK)
+    return res;
+
+  res = f_rename_internal(RENAME_FS tmpname, path_new);
+  if (res != FR_OK)
+    /* put the old name back */
+    f_rename_internal(RENAME_FS tmpname, path_old);
+
+  return res;
 }
 
 #endif /* !_FS_READONLY */

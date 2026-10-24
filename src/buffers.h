@@ -138,7 +138,12 @@ typedef struct buffer_s {
 extern dh_t matchdh;         /// Directory handle used in file matching
 extern buffer_t buffers[];   /// Simplifies access to the error buffer length
 
-extern uint8_t ops_scratch[33]; /// scratch space for use in fileops code
+#ifdef CONFIG_XE5
+#define OPS_SCRATCH_SIZE (_MAX_LFN_LENGTH+1)
+#else
+#define OPS_SCRATCH_SIZE 33
+#endif
+extern uint8_t ops_scratch[OPS_SCRATCH_SIZE]; /// scratch space for use in fileops code
 
 /* Initializes the buffer structures */
 void buffers_init(void);

@@ -1789,16 +1789,22 @@ static void parse_rename(void) {
     return;
   }
 
-  /* Check if the new name already exists */
-  res = first_match(&newpath, newname, FLAG_HIDDEN, &dent);
-  if (res == 0) {
-    set_error(ERROR_FILE_EXISTS);
-    return;
-  }
+  /* Check if the new name already exists, FAT finds the old file if only the case changes */
+  if (partition[newpath.part].fop != &fatops ||
+#ifdef CONFIG_XE5
+      file_extension_mode == 5 ||
+#endif
+      !names_differ_in_case(oldname, newname)) {
+    res = first_match(&newpath, newname, FLAG_HIDDEN, &dent);
+    if (res == 0) {
+      set_error(ERROR_FILE_EXISTS);
+      return;
+    }
 
-  if (res > 0)
-    /* first_match generated an error other than File Not Found, abort */
-    return;
+    if (res > 0)
+      /* first_match generated an error other than File Not Found, abort */
+      return;
+  }
 
   /* Clear the FNF */
   set_error(ERROR_OK);
@@ -2385,7 +2391,11 @@ static void parse_xcommand(void) {
       globalflags &= (uint8_t)~EXTENSION_HIDING;
     } else {
       num = parse_number(&str);
+#ifdef CONFIG_XE5
+      if (num > 5) {
+#else
       if (num > 4) {
+#endif
         set_error(ERROR_SYNTAX_UNKNOWN);
       } else {
         file_extension_mode = num;

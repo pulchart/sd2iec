@@ -209,8 +209,14 @@ static bool mount_line(void) {
   }
 
   /* recode entry if neccessary */
-  if (globalflags & SWAPLIST_ASCII)
-    asc2pet(buffer_start);
+  if (globalflags & SWAPLIST_ASCII) {
+#ifdef CONFIG_XE5
+    if (file_extension_mode == 5)
+      fat_to_petscii(buffer_start);
+    else
+#endif
+      asc2pet(buffer_start);
+  }
 
   /* parse and change */
   do_chdir(buffer_start);
@@ -230,6 +236,31 @@ static bool mount_line(void) {
 
   return success;
 }
+
+#ifdef CONFIG_XE5
+/* Write an 8.3 name to a swap list of extension mode 5, the directory lists a tilde as code 255 */
+static FRESULT write_short_name(FIL *fh, uint8_t *name, UINT *written) {
+  FRESULT res = FR_OK;
+  uint8_t *end;
+
+  while (*name && res == FR_OK) {
+    if (*name == '~') {
+      res = f_write(fh, "{FF}", 4, written);
+      end = name + 1;
+    } else {
+      for (end = name; *end && *end != '~'; end++) ;
+      res = f_write(fh, name, end - name, written);
+    }
+
+    if (res == FR_OK && *written == 0)
+      res = FR_DENIED;
+
+    name = end;
+  }
+
+  return res;
+}
+#endif
 
 /**
  * create_changelist - create a swap list in a directory
@@ -277,13 +308,25 @@ static uint8_t create_changelist(path_t *path, uint8_t *filename) {
           found = 1;
         }
 
-        /* write the name of disk image to file */
-        if (ops_scratch[0] != 0 && ustrlen(ops_scratch) <= CBM_NAME_LENGTH)
+        /* write the name of disk image to file, as the directory lists it */
+        if (ops_scratch[0] != 0 &&
+#ifdef CONFIG_XE5
+            (file_extension_mode == 5 ? fat_petscii_length(ops_scratch)
+                                      : ustrlen(ops_scratch)) <= CBM_NAME_LENGTH)
+#else
+            ustrlen(ops_scratch) <= CBM_NAME_LENGTH)
+#endif
           name = ops_scratch;
         else
           name = finfo.fname;
 
-        res = f_write(&fh, name, ustrlen(name), &byteswritten);
+#ifdef CONFIG_XE5
+        if (file_extension_mode == 5 && name == finfo.fname)
+          res = write_short_name(&fh, name, &byteswritten);
+        else
+#endif
+          res = f_write(&fh, name, ustrlen(name), &byteswritten);
+
         if (res != FR_OK || byteswritten == 0)
           break;
 

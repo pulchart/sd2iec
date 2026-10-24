@@ -127,6 +127,11 @@ void read_configuration(void) {
   }
 
   file_extension_mode = eeprom_read_byte(&storedconfig.fileexts);
+#ifndef CONFIG_XE5
+  /* A mode stored by a build with extension mode 5 is not available */
+  if (file_extension_mode > 4)
+    file_extension_mode = 1;
+#endif
 
 #ifdef NEED_DISKMUX
   if (size > 9) {
