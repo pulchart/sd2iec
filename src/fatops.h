@@ -55,6 +55,8 @@ extern uint8_t file_extension_mode;
 uint8_t image_unmount(uint8_t part);
 uint8_t image_chdir(path_t *path, cbmdirent_t *dent);
 void    image_mkdir(path_t *path, uint8_t *dirname);
+void    image_set_attrib(path_t *path, cbmdirent_t *dent, uint8_t mask, uint8_t attr);
+void    image_set_headername(path_t *path, uint8_t *newname, uint8_t *newid);
 uint8_t image_read(uint8_t part, DWORD offset, void *buffer, uint16_t bytes);
 uint8_t image_write(uint8_t part, DWORD offset, void *buffer, uint16_t bytes, uint8_t flush);
 

@@ -1811,6 +1811,178 @@ static void parse_rename(void) {
 }
 
 
+/* ------------------------------------ */
+/*  A, L, EH, EL, EU - File attributes  */
+/* ------------------------------------ */
+
+/* Change attribute flags of the first file matching the name in "in".  */
+/* The flags in mask are set to attr, or inverted if toggle is nonzero. */
+static void change_attrib(uint8_t *in, uint8_t mask, uint8_t attr, uint8_t toggle) {
+  path_t path;
+  uint8_t *name;
+  cbmdirent_t dent;
+
+  if (parse_path(in, &path, &name, 0))
+    return;
+
+  if (first_match(&path, name, FLAG_HIDDEN, &dent))
+    return;
+
+  if (toggle)
+    attr = dent.typeflags ^ mask;
+
+  set_attrib(&path, &dent, mask, attr);
+}
+
+/* Set (FLAG_RO) or clear (0) the read-only flag of all files in a comma */
+/* separated list of patterns, a "$" locks resp. unlocks the image.      */
+static void change_lock(uint8_t attr) {
+  cbmdirent_t dent;
+  int8_t  res;
+  uint8_t *filename,*tmp,*name;
+  path_t  path;
+
+  clean_cmdbuffer();
+
+  filename = ustr1tok(command_buffer+2,',',&tmp);
+
+  set_dirty_led(1);
+  /* Loop over all file names */
+  while (filename != NULL) {
+    if (parse_path(filename, &path, &name, 0))
+      return;
+
+    if (name[0] == '$' && name[1] == 0) {
+      set_attrib(&path, NULL, FLAG_RO, attr);
+    } else {
+      if (opendir(&matchdh, &path))
+        return;
+
+      while (1) {
+        res = next_match(&matchdh, name, NULL, NULL, FLAG_HIDDEN, &dent);
+        if (res < 0)
+          break;
+        if (res > 0)
+          return;
+
+        /* Skip directories */
+        if ((dent.typeflags & TYPE_MASK) == TYPE_DIR)
+          continue;
+
+        set_attrib(&path, &dent, FLAG_RO, attr);
+        if (current_error != ERROR_OK)
+          return;
+      }
+    }
+
+    if (current_error != ERROR_OK)
+      return;
+
+    filename = ustr1tok(NULL,',',&tmp);
+  }
+}
+
+static void parse_attr(void) {
+  uint8_t *name, *p;
+  uint8_t attr = 0;
+
+  clean_cmdbuffer();
+
+  /* Find the boundary between the attributes and the name */
+  name = ustrchr(command_buffer, '=');
+  if (command_buffer[1] != ':' || name == NULL) {
+    set_error(ERROR_SYNTAX_UNKNOWN);
+    return;
+  }
+  *name++ = 0;
+
+  for (p = command_buffer+2; *p; p++) {
+    if (*p == 'H')
+      attr |= FLAG_HIDDEN;
+    else if (*p == 'R')
+      attr |= FLAG_RO;
+    else {
+      set_error(ERROR_SYNTAX_UNKNOWN);
+      return;
+    }
+  }
+
+  change_attrib(name, FLAG_HIDDEN | FLAG_RO, attr, 0);
+}
+
+/* Change the header name and id of a disk, "in" points at the path or colon */
+static void parse_set_header(uint8_t *in) {
+  path_t path;
+  uint8_t *name, *id;
+
+  clean_cmdbuffer();
+
+  if (!ustrchr(in, ':')) {
+    set_error(ERROR_SYNTAX_NONAME);
+    return;
+  }
+
+  if (parse_path(in, &path, &name, 0))
+    return;
+
+  id = ustrchr(name, ',');
+  if (id != NULL) {
+    *id = 0;
+    id++;
+  }
+
+  if (name[0] == '\0') {
+    set_error(ERROR_SYNTAX_NONAME);
+    return;
+  }
+
+  if (ustrlen(name) > CBM_NAME_LENGTH) {
+    set_error(ERROR_SYNTAX_TOOLONG);
+    return;
+  }
+
+  if (id != NULL && ustrlen(id) != 2) {
+    set_error(ERROR_SYNTAX_UNKNOWN);
+    return;
+  }
+
+  set_headername(&path, name, id);
+}
+
+/* ------------ */
+/*  E commands  */
+/* ------------ */
+static void parse_ecommand(void) {
+  uint8_t *str;
+
+  clean_cmdbuffer();
+
+  switch (command_buffer[1]) {
+  case 'H':
+    /* Header change with a colon right after the partition, hide otherwise */
+    str = command_buffer+2;
+    parse_partition(&str);
+    if (*str == ':')
+      parse_set_header(command_buffer+2);
+    else
+      change_attrib(command_buffer+2, FLAG_HIDDEN, 0, 1);
+    break;
+
+  case 'L':
+    change_lock(FLAG_RO);
+    break;
+
+  case 'U':
+    change_lock(0);
+    break;
+
+  default:
+    set_error(ERROR_SYNTAX_UNKNOWN);
+    break;
+  }
+}
+
+
 /* ------------- */
 /*  S - Scratch  */
 /* ------------- */
@@ -2304,6 +2476,26 @@ static void parse_xcommand(void) {
     }
     break;
 
+  case 'H':
+    /* Change hidden flag mode or set the header */
+    str = command_buffer+2;
+    if (*str == '+') {
+      globalflags |= D64_WITH_HIDDEN;
+    } else if (*str == '-') {
+      globalflags &= (uint8_t)~D64_WITH_HIDDEN;
+    } else {
+      parse_set_header(str);
+    }
+    break;
+
+  case 'L':
+    change_lock(FLAG_RO);
+    break;
+
+  case 'U':
+    change_lock(0);
+    break;
+
   case 'W':
     /* Write configuration */
     write_configuration();
@@ -2424,6 +2616,11 @@ void parse_doscommand(void) {
   }
 
   switch (command_buffer[0]) {
+  case 'A':
+    /* Set attributes */
+    parse_attr();
+    break;
+
   case 'B':
     /* Block-Something */
     parse_block();
@@ -2439,8 +2636,17 @@ void parse_doscommand(void) {
     break;
 
   case 'D':
+    if (command_buffer[1] == ':') {
+      /* Change header */
+      parse_set_header(command_buffer+1);
+      break;
+    }
     /* Direct sector access (was duplicate in CBM drives) */
     parse_direct();
+    break;
+
+  case 'E':
+    parse_ecommand();
     break;
 
   case 'G':
@@ -2451,6 +2657,11 @@ void parse_doscommand(void) {
   case 'I':
     /* Initialize */
     parse_initialize();
+    break;
+
+  case 'L':
+    /* Toggle the read-only flag of a file */
+    change_attrib(command_buffer+1, FLAG_RO, 0, 1);
     break;
 
   case 'M':
@@ -2469,6 +2680,11 @@ void parse_doscommand(void) {
     break;
 
   case 'R':
+    if (command_length > 2 && command_buffer[1] == '-' && command_buffer[2] == 'H') {
+      /* Rename header */
+      parse_set_header(command_buffer+3);
+      break;
+    }
     /* Rename */
     parse_rename();
     break;

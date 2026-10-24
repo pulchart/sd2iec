@@ -77,6 +77,45 @@ Supported commands:
   ($=P:S*). All partitions are listed with type "FAT", although this could
   change to "NAT" later for compatibility.
 
+- A:
+  Sets the attributes of a file and removes all others.
+    A:=foo    removes all attributes
+    A:R=foo   sets read-only
+    A:H=foo   sets hidden
+    A:RH=foo  sets both
+  Works on FAT and in Dxx images. In Dxx images hidden has an effect only
+  with XH+, without it the command returns 31,SYNTAX ERROR when setting
+  hidden. Not supported in M2I images and on the EEPROM filesystem.
+
+- L/EL/EU/XL/XU:
+  Sets resp. clears the read-only flag. Locked files can't be scratched or
+  overwritten.
+    L:foo     toggles the flag of the first file matching foo
+    EL:foo    sets the flag on all files matching foo
+    EU:foo    clears the flag on all files matching foo
+  XL and XU are the same as EL and EU. Several names can be separated by
+  comma, directories are skipped.
+
+  EL:$ locks a mounted Dxx image as a whole, EU:$ unlocks it. Writing to a
+  locked image returns 26,WRITE PROTECT ON. The lock is stored in the DOS
+  version byte of the root header, a value from 1 to 63 counts as locked. A
+  new image created by N is never locked.
+
+- EH:
+  Toggles the hidden flag of a file.
+    EH/:foo   toggles the flag on the first file matching foo
+  A path must be present, the command is a header change otherwise. In Dxx
+  images this requires XH+.
+
+- D:, R-H, EH:, XH:
+  Change the header name and id of a mounted Dxx image, in a DNP image the
+  header of the current directory. The id is optional and has two characters.
+    D:foo,ba   sets name foo and id ba
+    R-H:foo    sets name foo
+    EH:foo,ba  same as D:, a path must not be given
+    XH:foo,ba  same as D:
+  Not supported on FAT, in M2I images and on the EEPROM filesystem.
+
 - CD/MD/RD:
   Subdirectory access is compatible to the syntax used by the CMD drives,
   although drive/partition numbers are completely ignored.
@@ -379,6 +418,10 @@ Supported commands:
 
   - XN+/XN-  Enable/disable fast format. In fast format mode, only the directory
              track of an image is wiped during format. This flag can be saved
+             in the EEPROM using XW, the default value is disabled (-).
+
+  - XH+/XH-  Enable/disable the hidden flag (bit 5 of the file type) in Dxx
+             images. If disabled, the bit is ignored. This flag can be saved
              in the EEPROM using XW, the default value is disabled (-).
 
   - X*+/X*-  Enable/disable 1581-style * matching. If enabled, characters

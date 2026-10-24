@@ -42,12 +42,13 @@
 #define DIR_OFS_SIZE_HI         0x1f
 
 /* Disk image types - values must match G-P partition type byte */
-#define D64_TYPE_MASK 0x7f
+#define D64_TYPE_MASK 0x3f
 #define D64_TYPE_NONE 0
 #define D64_TYPE_DNP  1
 #define D64_TYPE_D41  2
 #define D64_TYPE_D71  3
 #define D64_TYPE_D81  4
+#define D64_IS_READONLY   64
 #define D64_HAS_ERRORINFO 128
 
 /* Disk image sizes */
@@ -56,6 +57,7 @@
 #define D81_SIZE          819200
 
 extern const fileops_t d64ops;
+extern uint8_t d64_format_full;
 
 uint16_t d64_sectors_per_track(uint8_t part, uint8_t track);
 

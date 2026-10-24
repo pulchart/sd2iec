@@ -194,6 +194,36 @@ static uint32_t sector_offset(uint8_t part, uint8_t track, const uint8_t sector)
 }
 
 /**
+ * header_version_offset - offset of the DOS version byte in the root header
+ * @part: partition number
+ *
+ * The DOS version byte is used as soft write protection flag of the image.
+ */
+static uint32_t header_version_offset(uint8_t part) {
+  uint8_t sector = 0;
+
+  if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP)
+    sector = 1;
+
+  return sector_offset(part, get_param(part, DIR_TRACK), sector) + 2;
+}
+
+/**
+ * d64_locked - check for a soft write protected image
+ * @part: partition number
+ *
+ * Returns 1 and sets the write protect error if the image is locked.
+ */
+static uint8_t d64_locked(uint8_t part) {
+  if (partition[part].imagetype & D64_IS_READONLY) {
+    set_error(ERROR_WRITE_PROTECT);
+    return 1;
+  }
+
+  return 0;
+}
+
+/**
  * d64_sectors_per_track - number of sectors on given track
  * @part : partition number
  * @track: Track number
@@ -558,7 +588,7 @@ static int8_t is_free(uint8_t part, uint8_t track, uint8_t sector) {
   if(res)
     return -1;
 
-  if (partition[part].imagetype == D64_TYPE_DNP)
+  if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP)
     return (ptr[sector>>3] & (0x80>>(sector&7))) != 0;
   else
     return (ptr[sector>>3] & (1<<(sector&7))) != 0;
@@ -628,7 +658,7 @@ static uint8_t allocate_sector(uint8_t part, uint8_t track, uint8_t sector) {
 
     bam_buffer->mustflush = 1;
 
-    if (partition[part].imagetype == D64_TYPE_DNP) {
+    if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP) {
       /* For some reason DNP has its bitfield reversed */
       trackmap[sector>>3] &= (uint8_t)~(0x80>>(sector&7));
 
@@ -673,7 +703,7 @@ static uint8_t free_sector(uint8_t part, uint8_t track, uint8_t sector) {
 
     bam_buffer->mustflush = 1;
 
-    if (partition[part].imagetype == D64_TYPE_DNP) {
+    if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP) {
       /* For some reason DNP has its bitfield reversed */
       trackmap[sector>>3] |= 0x80>>(sector&7);
 
@@ -715,7 +745,7 @@ static uint8_t get_first_sector(uint8_t part, uint8_t *track, uint8_t *sector) {
   /* DNP uses a simple "first free" allocation scheme, starting at track 2.  */
   /* It is not known if this is the same algorithm as used in the original   */
   /* CMD drives, but track 1 seems to be semi-reserved for directory sectors.*/
-  if (partition[part].imagetype == D64_TYPE_DNP) {
+  if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP) {
     *track = 2;
     while (sectors_free(part, *track) == 0) {
       (*track)++;
@@ -777,7 +807,7 @@ static uint8_t get_first_sector(uint8_t part, uint8_t *track, uint8_t *sector) {
  * Returns 0 if successful or 1 if any error occured.
  */
 static uint8_t get_next_sector(uint8_t part, uint8_t *track, uint8_t *sector) {
-  if (partition[part].imagetype == D64_TYPE_DNP) {
+  if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP) {
     uint8_t newtrack = *track;
 
     /* Find a track with free sectors */
@@ -960,7 +990,7 @@ static uint8_t find_empty_entry(path_t *path, dh_t *dh) {
       return 1;
 
     /* DNP only: Increment the block count in the parent directory */
-    if (partition[path->part].imagetype == D64_TYPE_DNP) {
+    if ((partition[path->part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP) {
       if (image_read(path->part,
                      DNP_DIRHEADER_PARENTENTRY_TRACK + sector_offset(path->part,
                                                                      path->dir.dxx.track,
@@ -1338,6 +1368,12 @@ uint8_t d64_mount(path_t *path, uint8_t *name) {
     /* Invalidate error cache */
     errorcache.part = 255;
 
+  /* A DOS version byte of 1..0x3f in the root header marks a locked image */
+  uint8_t version;
+  if (image_read(part, header_version_offset(part), &version, 1) == 0 &&
+      version != 0 && version < 0x40)
+    partition[part].imagetype |= D64_IS_READONLY;
+
   return 0;
 }
 
@@ -1348,7 +1384,7 @@ static uint8_t d64_opendir(dh_t *dh, path_t *path) {
   dh->dir.d64.entry  = 0;
   dh->dir.d64.hidden = 0;
 
-  if (partition[path->part].imagetype == D64_TYPE_DNP) {
+  if ((partition[path->part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP) {
     /* Read the real first directory sector from the header sector */
     uint8_t tmp[2];
     if (image_read(path->part,
@@ -1385,8 +1421,12 @@ static int8_t d64_readdir(dh_t *dh, cbmdirent_t *dent) {
   /* Treat entries with type == 0 as hidden */
   if (dent->typeflags == 0)
     dent->typeflags = FLAG_HIDDEN;
-  else
-    dent->typeflags = (dent->typeflags ^ FLAG_SPLAT) & ~FLAG_HIDDEN;
+  else {
+    dent->typeflags ^= FLAG_SPLAT;
+    /* The hidden flag is only honored on request */
+    if (!(globalflags & D64_WITH_HIDDEN))
+      dent->typeflags &= ~FLAG_HIDDEN;
+  }
 
   if ((dent->typeflags & EXT_TYPE_MASK) > TYPE_DIR)
     /* Mark invalid file types (will be displayed as "???") */
@@ -1418,7 +1458,7 @@ static int8_t d64_readdir(dh_t *dh, cbmdirent_t *dent) {
 static uint8_t read_string_from_dirheader(path_t *path, uint8_t *buffer, param_t what, uint8_t size) {
   uint8_t sector;
 
-  if (partition[path->part].imagetype == D64_TYPE_DNP)
+  if ((partition[path->part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP)
     sector = path->dir.dxx.sector;
   else
     sector = 0;
@@ -1438,7 +1478,7 @@ static uint8_t d64_getdirlabel(path_t *path, uint8_t *label) {
 }
 
 static uint8_t d64_getdisklabel(uint8_t part, uint8_t *label) {
-  if (partition[part].imagetype == D64_TYPE_DNP) {
+  if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP) {
     /* Read directly from root dir header */
     if (image_read(part, 256 + DNP_LABEL_OFFSET, label, 16))
       return 1;
@@ -1538,7 +1578,16 @@ static void d64_open_write(path_t *path, cbmdirent_t *dent, uint8_t type, buffer
     return;
   }
 
+  if (d64_locked(path->part))
+    return;
+
   if (append) {
+    /* Locked files cannot be appended to */
+    if (dent->typeflags & FLAG_RO) {
+      set_error(ERROR_WRITE_PROTECT);
+      return;
+    }
+
     /* Append case: Open the file and read the last sector */
     d64_open_read(path, dent, buf, 0);
     while (!current_error && buf->data[0])
@@ -1630,6 +1679,9 @@ static void d64_open_rel(path_t *path, cbmdirent_t *dent, buffer_t *buf, uint8_t
 static uint8_t d64_delete(path_t *path, cbmdirent_t *dent) {
   uint8_t linkbuf[2];
 
+  if (d64_locked(path->part))
+    return 255;
+
   /* Read the directory entry of the file */
   if (read_entry(path->part, &dent->pvt.dxx.dh, ops_scratch))
     return 255;
@@ -1671,6 +1723,9 @@ static void d64_write_sector(buffer_t *buf, uint8_t part, uint8_t track, uint8_t
 static void d64_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
   uint8_t *ptr;
 
+  if (d64_locked(path->part))
+    return;
+
   /* Read the directory entry of the file */
   if (read_entry(path->part, &dent->pvt.dxx.dh, ops_scratch))
     return;
@@ -1694,7 +1749,7 @@ static void d64_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
 void d64_raw_directory(path_t *path, buffer_t *buf) {
   /* Copy&Waste from d64_open_read */
   buf->data[0] = path->dir.dxx.track;
-  if (partition[path->part].imagetype == D64_TYPE_DNP)
+  if ((partition[path->part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP)
     buf->data[1] = path->dir.dxx.sector;
   else
     buf->data[1] = 0;
@@ -1720,7 +1775,7 @@ void d64_raw_directory(path_t *path, buffer_t *buf) {
  * Returns 0 if successful, 1 otherwise.
  */
 static uint8_t d64_chdir(path_t *path, cbmdirent_t *dirname) {
-  if (partition[path->part].imagetype != D64_TYPE_DNP)
+  if ((partition[path->part].imagetype & D64_TYPE_MASK) != D64_TYPE_DNP)
     return image_chdir(path,dirname);
 
   if (dirname == NULL) {
@@ -1771,10 +1826,13 @@ static void d64_mkdir(path_t *path, uint8_t *dirname) {
   uint8_t h_track,h_sector,d_track,d_sector;
   uint8_t *ptr, *name;
 
-  if (partition[path->part].imagetype != D64_TYPE_DNP) {
+  if ((partition[path->part].imagetype & D64_TYPE_MASK) != D64_TYPE_DNP) {
     set_error(ERROR_SYNTAX_UNABLE);
     return;
   }
+
+  if (d64_locked(path->part))
+    return;
 
   buf = alloc_buffer();
   if (buf == NULL)
@@ -2062,7 +2120,7 @@ uint8_t d64_extend_image(uint8_t part, uint8_t tracks) {
     return 0;
 
   // Only continue if a D41 image without error info is mounted.
-  if (partition[part].fop != &d64ops || partition[part].imagetype != D64_TYPE_D41) {
+  if (partition[part].fop != &d64ops || (partition[part].imagetype & ~D64_IS_READONLY) != D64_TYPE_D41) {
     set_error(ERROR_IMAGE_INVALID);
     return 1;
   }
@@ -2240,6 +2298,9 @@ static void format_dnp_image(uint8_t part, buffer_t *buf, uint8_t *name, uint8_t
   clear_dir_sector(part, 1, DNP_ROOTDIR_SECTOR, buf->data);
 }
 
+/* Set while formatting a freshly created image, forces a full format */
+uint8_t d64_format_full;
+
 static void d64_format(path_t *path, uint8_t *name, uint8_t *id) {
   buffer_t *buf;
   uint8_t  part = path->part;
@@ -2248,12 +2309,15 @@ static void d64_format(path_t *path, uint8_t *name, uint8_t *id) {
   uint16_t  s;
 
   /* allow format on DNP only when in the root directory */
-  if (partition[part].imagetype == D64_TYPE_DNP &&
+  if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP &&
       (partition[part].current_dir.dxx.track  != 1 ||
        partition[part].current_dir.dxx.sector != 1)) {
     /* just ignore, CMD HD doesn't return an error either */
     return;
   }
+
+  if (d64_locked(part))
+    return;
 
   /* grab a buffer as work area */
   buf = alloc_buffer();
@@ -2278,6 +2342,8 @@ static void d64_format(path_t *path, uint8_t *name, uint8_t *id) {
       if (id[2] == '+') fastformat = 1;
       if (id[2] == '-') fastformat = 0;
     }
+    if (d64_format_full)
+      fastformat = 0;
 
     /* Clear the data area of the disk image, only the directory track in fast mode */
     if (fastformat) {
@@ -2319,6 +2385,118 @@ static void d64_format(path_t *path, uint8_t *name, uint8_t *id) {
   partition[part].d64data.format_function(part, buf, name, idbuf);
 }
 
+/**
+ * d64_set_attrib - change attributes of a file or lock/unlock the image
+ * @path: path of the file
+ * @dent: file to be changed, NULL to lock/unlock the whole image
+ * @mask: FLAG_RO and/or FLAG_HIDDEN, the flags to be changed
+ * @attr: new values of the flags selected by @mask, for the whole image
+ *        non-zero locks and zero unlocks it
+ *
+ * The locked state is stored in the DOS version byte of the root header.
+ */
+static void d64_set_attrib(path_t *path, cbmdirent_t *dent, uint8_t mask, uint8_t attr) {
+  uint8_t part = path->part;
+  uint8_t value, was;
+
+  if (dent != NULL) {
+    if (d64_locked(part))
+      return;
+
+    mask &= FLAG_RO | FLAG_HIDDEN;
+    if (!(globalflags & D64_WITH_HIDDEN)) {
+      /* Hidden is not visible, so it can't be changed either */
+      if (mask & attr & FLAG_HIDDEN) {
+        set_error(ERROR_SYNTAX_UNABLE);
+        return;
+      }
+      mask &= ~FLAG_HIDDEN;
+    }
+
+    if (read_entry(part, &dent->pvt.dxx.dh, ops_scratch))
+      return;
+
+    /* Leave deleted entries alone */
+    if (ops_scratch[DIR_OFS_FILE_TYPE] == 0)
+      return;
+
+    ops_scratch[DIR_OFS_FILE_TYPE] = (ops_scratch[DIR_OFS_FILE_TYPE] & ~mask) | (attr & mask);
+    write_entry(part, &dent->pvt.dxx.dh, ops_scratch, 1);
+    return;
+  }
+
+  switch (partition[part].imagetype & D64_TYPE_MASK) {
+  case D64_TYPE_DNP:
+    value = attr ? 0x3e : 0x48;
+    break;
+
+  case D64_TYPE_D81:
+    value = attr ? 0x3d : 0x44;
+    break;
+
+  default:
+    value = attr ? 0x3c : 0x41;
+    break;
+  }
+
+  /* Flush the BAM first and drop it afterwards, it contains the header */
+  if (d64_commit())
+    return;
+
+  /* The write is only possible while the image is not marked as locked */
+  was = partition[part].imagetype & D64_IS_READONLY;
+  partition[part].imagetype &= ~D64_IS_READONLY;
+  if (image_write(part, header_version_offset(part), &value, 1, 1))
+    partition[part].imagetype |= was;
+  else if (attr)
+    partition[part].imagetype |= D64_IS_READONLY;
+
+  if (bam_buffer)
+    bam_buffer->pvt.bam.part = 0xff;
+  if (bam_buffer2)
+    bam_buffer2->pvt.bam.part = 0xff;
+}
+
+/**
+ * d64_set_headername - change the header name and id of the current directory
+ * @path   : path of the directory
+ * @newname: new header name, up to 16 characters
+ * @newid  : new id of two characters or NULL to keep the old one
+ */
+static void d64_set_headername(path_t *path, uint8_t *newname, uint8_t *newid) {
+  uint8_t part = path->part;
+  uint8_t sector = 0;
+  uint8_t buffer[16];
+  uint32_t offset;
+  uint8_t len;
+
+  if (d64_locked(part))
+    return;
+
+  if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_DNP)
+    sector = path->dir.dxx.sector;
+
+  /* Flush the BAM first and drop it afterwards, it contains the header */
+  if (d64_commit())
+    return;
+
+  offset = sector_offset(part, path->dir.dxx.track, sector);
+
+  memset(buffer, 0xa0, sizeof(buffer));
+  len = ustrlen(newname);
+  memcpy(buffer, newname, len);
+  if (image_write(part, offset + get_param(part, LABEL_OFFSET), buffer, 16, 1))
+    return;
+
+  if (newid != NULL)
+    image_write(part, offset + get_param(part, ID_OFFSET), newid, 2, 1);
+
+  if (bam_buffer)
+    bam_buffer->pvt.bam.part = 0xff;
+  if (bam_buffer2)
+    bam_buffer2->pvt.bam.part = 0xff;
+}
+
 
 /* ------------------------------------------------------------------------- */
 /*  ops struct                                                               */
@@ -2340,5 +2518,7 @@ const PROGMEM fileops_t d64ops = {
   d64_readdir,
   d64_mkdir,
   d64_chdir,
-  d64_rename
+  d64_rename,
+  d64_set_attrib,
+  d64_set_headername
 };

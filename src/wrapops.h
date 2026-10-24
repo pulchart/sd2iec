@@ -53,6 +53,9 @@
  * @mkdir       : create a directory
  * @chdir       : change current directory, a NULL dirent moves one level up
  * @rename      : rename a file
+ * @set_attrib  : change attribute flags (FLAG_RO/FLAG_HIDDEN selected by mask)
+ *                of a file, a NULL dirent locks (attr != 0) or unlocks the image
+ * @set_headername: change the header name and id of the current directory
  *
  * This structure holds function pointers for the various
  * abstracted operations on the supported file systems/images.
@@ -76,6 +79,8 @@ typedef struct fileops_s {
   void     (*mkdir)(path_t *path, uint8_t *dirname);
   uint8_t  (*chdir)(path_t *path, cbmdirent_t *dent);
   void     (*rename)(path_t *path, cbmdirent_t *oldname, uint8_t *newname);
+  void     (*set_attrib)(path_t *path, cbmdirent_t *dent, uint8_t mask, uint8_t attr);
+  void     (*set_headername)(path_t *path, uint8_t *newname, uint8_t *newid);
 } fileops_t;
 
 /* Helper-Define to avoid lots of typedefs */
@@ -103,5 +108,7 @@ typedef struct fileops_s {
 #define mkdir(path,dir) ((pgmcall(partition[(path)->part].fop->mkdir))(path,dir))
 #define chdir(path,dent) ((pgmcall(partition[(path)->part].fop->chdir))(path,dent))
 #define rename(path,old,new) ((pgmcall(partition[(path)->part].fop->rename))(path,old,new))
+#define set_attrib(path,dent,mask,attr) ((pgmcall(partition[(path)->part].fop->set_attrib))(path,dent,mask,attr))
+#define set_headername(path,name,id) ((pgmcall(partition[(path)->part].fop->set_headername))(path,name,id))
 
 #endif

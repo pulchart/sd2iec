@@ -1728,6 +1728,13 @@ uint8_t image_write(uint8_t part, DWORD offset, void *buffer, uint16_t bytes, ui
   FRESULT res;
   UINT byteswritten;
 
+  /* Refuse writes to a soft write protected Dxx image */
+  if (partition[part].fop == &d64ops &&
+      (partition[part].imagetype & D64_IS_READONLY)) {
+    set_error(ERROR_WRITE_PROTECT);
+    return 2;
+  }
+
   if (offset != (DWORD)-1) {
     res = f_lseek(&partition[part].imagehandle, offset);
     if (res != FR_OK) {
@@ -1749,6 +1756,40 @@ uint8_t image_write(uint8_t part, DWORD offset, void *buffer, uint16_t bytes, ui
     f_sync(&partition[part].imagehandle);
 
   return 0;
+}
+
+/**
+ * image_set_attrib - generic set_attrib for filesystems without attributes
+ * @path: path of the file
+ * @dent: file to be changed
+ * @mask: attribute flags to be changed
+ * @attr: new values of the attribute flags
+ *
+ * This function only sets an error message.
+ */
+void image_set_attrib(path_t *path, cbmdirent_t *dent, uint8_t mask, uint8_t attr) {
+  (void)path;
+  (void)dent;
+  (void)mask;
+  (void)attr;
+
+  set_error(ERROR_SYNTAX_UNABLE);
+}
+
+/**
+ * image_set_headername - generic set_headername for filesystems without header
+ * @path   : path of the directory
+ * @newname: new header name
+ * @newid  : new header id or NULL
+ *
+ * This function only sets an error message.
+ */
+void image_set_headername(path_t *path, uint8_t *newname, uint8_t *newid) {
+  (void)path;
+  (void)newname;
+  (void)newid;
+
+  set_error(ERROR_SYNTAX_UNABLE);
 }
 
 /**
@@ -1781,6 +1822,7 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
   FRESULT  res;
   uint8_t  imagetype;
   uint8_t  *ext;
+  uint8_t  created = 0;
   uint32_t fsize;
 
   /* The id is two characters, optionally followed by + or - */
@@ -1851,6 +1893,7 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
     res = f_open(&partition[path->part].fatfs,
                  &partition[path->part].imagehandle,
                  ops_scratch, FA_CREATE_NEW|FA_READ|FA_WRITE);
+    created = 1;
 
     if (res == FR_OK)
       res = f_lseek(&partition[path->part].imagehandle, fsize);
@@ -1874,8 +1917,60 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
   }
 
   partition[path->part].fop = &d64ops;
+  /* The header of a new image holds undefined data, never treat it as locked */
+  if (created)
+    partition[path->part].imagetype &= ~D64_IS_READONLY;
+  d64_format_full = created;
   format(path, name, id);
+  d64_format_full = 0;
   image_unmount(path->part);
+}
+
+/**
+ * fat_set_attrib - change read-only and hidden attributes on FAT
+ * @path: path of the file
+ * @dent: file or directory to be changed
+ * @mask: FLAG_RO and/or FLAG_HIDDEN, the flags to be changed
+ * @attr: new values of the flags selected by @mask
+ */
+static void fat_set_attrib(path_t *path, cbmdirent_t *dent, uint8_t mask, uint8_t attr) {
+  FRESULT res;
+  uint8_t *name;
+  uint8_t fmask = 0;
+  uint8_t fattr = 0;
+
+  /* A FAT filesystem can't be locked as a whole */
+  if (dent == NULL) {
+    set_error(ERROR_SYNTAX_UNABLE);
+    return;
+  }
+
+  if (mask & FLAG_RO) {
+    fmask |= AM_RDO;
+    if (attr & FLAG_RO)
+      fattr |= AM_RDO;
+  }
+
+  if (mask & FLAG_HIDDEN) {
+    /* The directory listing treats system files as hidden too */
+    fmask |= AM_HID | AM_SYS;
+    if (attr & FLAG_HIDDEN)
+      fattr |= AM_HID;
+  }
+
+  set_dirty_led(1);
+  if (dent->pvt.fat.realname[0]) {
+    name = dent->pvt.fat.realname;
+  } else {
+    name = dent->name;
+    pet2asc(name);
+  }
+  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  res = f_chmod(&partition[path->part].fatfs, name, fattr, fmask);
+
+  update_leds();
+
+  parse_error(res,0);
 }
 
 const PROGMEM fileops_t fatops = {  // These should be at bottom, to be consistent with d64ops and m2iops
@@ -1894,5 +1989,7 @@ const PROGMEM fileops_t fatops = {  // These should be at bottom, to be consiste
   &fat_readdir,
   &fat_mkdir,
   &fat_chdir,
-  &fat_rename
+  &fat_rename,
+  &fat_set_attrib,
+  &image_set_headername
 };

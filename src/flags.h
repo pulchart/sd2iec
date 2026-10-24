@@ -45,6 +45,7 @@ extern uint8_t globalflags;
 #define EXTENSION_HIDING (1<<3)
 #define POSTMATCH        (1<<4)
 #define FASTFORMAT       (1<<6)
+#define D64_WITH_HIDDEN  (1<<7)
 
 /* Disk image-as-directory mode, defined in fileops.c */
 extern uint8_t image_as_dir;
