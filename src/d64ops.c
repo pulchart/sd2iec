@@ -37,6 +37,7 @@
 #include "ustring.h"
 #include "wrapops.h"
 #include "d64ops.h"
+#include "flags.h"
 
 #include "display_lcd.h"
 
@@ -2271,10 +2272,26 @@ static void d64_format(path_t *path, uint8_t *name, uint8_t *id) {
     bam_buffer2->pvt.bam.part = 0xff;
 
   if (id != NULL) {
-    /* Clear the data area of the disk image */
-    for (t=1; t<=get_param(part, LAST_TRACK); t++) {
-      if (d64_format_track(part, buf, t))
+    /* An id followed by +/- overrides the fast format setting */
+    uint8_t fastformat = globalflags & FASTFORMAT;
+    if (id[0] && id[1]) {
+      if (id[2] == '+') fastformat = 1;
+      if (id[2] == '-') fastformat = 0;
+    }
+
+    /* Clear the data area of the disk image, only the directory track in fast mode */
+    if (fastformat) {
+      if (d64_format_track(part, buf, get_param(part, DIR_TRACK)))
         return;
+      /* the second D71 BAM sector lies outside of the directory track */
+      if ((partition[part].imagetype & D64_TYPE_MASK) == D64_TYPE_D71 &&
+          d64_format_track(part, buf, D71_BAM2_TRACK))
+        return;
+    } else {
+      for (t=1; t<=get_param(part, LAST_TRACK); t++) {
+        if (d64_format_track(part, buf, t))
+          return;
+      }
     }
 
     /* Copy the new ID into the buffer */

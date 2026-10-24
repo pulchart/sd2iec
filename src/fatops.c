@@ -1783,7 +1783,9 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
   uint8_t  *ext;
   uint32_t fsize;
 
-  if (id != NULL && ustrlen(id) != 2) {
+  /* The id is two characters, optionally followed by + or - */
+  if (id != NULL && ustrlen(id) != 2 &&
+      !(ustrlen(id) == 3 && (id[2] == '+' || id[2] == '-'))) {
     set_error(ERROR_SYNTAX_UNKNOWN);
     return;
   }
