@@ -41,7 +41,8 @@ extern uint8_t globalflags;
 #define SWAPLIST_ASCII   (1<<5)
 
 /* permanent (EEPROM-saved) flags */
-/* 1<<1 was JIFFY_ENABLED */
+/* 1<<1 was JIFFY_ENABLED, now CHECK_TYPE (saved with the extension mode) */
+#define CHECK_TYPE       (1<<1)
 #define EXTENSION_HIDING (1<<3)
 #define POSTMATCH        (1<<4)
 #define FASTFORMAT       (1<<6)

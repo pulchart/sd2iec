@@ -868,6 +868,7 @@ void file_open(uint8_t secondary) {
   uint8_t *ptr = command_buffer;
   enum open_modes mode = OPEN_READ;
   uint8_t filetype = TYPE_DEL;
+  uint8_t implicit_type = 0;
 
   /* check for a single * to load the previous file */
   if (secondary         == 0 &&
@@ -881,6 +882,7 @@ void file_open(uint8_t secondary) {
 
     /* force file type to PRG - d7cd/d81c */
     filetype = TYPE_PRG;
+    implicit_type = 1;
   }
 
   /* check file type and mode */
@@ -994,6 +996,14 @@ void file_open(uint8_t secondary) {
     }
     filetype = TYPE_REL;
     mode = OPEN_MODIFY;
+  }
+
+  /* Strict type checking: an explicit type must match the existing file */
+  if (!res && (globalflags & CHECK_TYPE) && !implicit_type && filetype != TYPE_DEL &&
+      (dent.typeflags & TYPE_MASK) != TYPE_DEL &&
+      (dent.typeflags & TYPE_MASK) != filetype) {
+    set_error(ERROR_FILE_TYPE_MISMATCH);
+    return;
   }
 
   /* Force mode+type for secondaries 0/1 */

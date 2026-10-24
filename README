@@ -415,6 +415,17 @@ Supported commands:
              This flag can be saved in the EEPROM using XW, the default
              value is disabled (-).
 
+  - XEL/XEU  Lock (XEL) / unlock (XEU) the file extension settings.
+             While locked, XEnum and XE+/XE- are silently ignored. The
+             lock can be saved in the EEPROM using XW and is shown as '<'
+             after the extension hiding flag in the extended status.
+
+  - XET+/XET- Enable/disable strict file type checking. If enabled,
+             opening an existing file with an explicit file type (e.g.
+             "NAME,S") fails with 64,FILE TYPE MISMATCH if the type of
+             the file differs. This flag can be saved in the EEPROM using
+             XW, the default value is disabled (-).
+
   - XInum    Switches the display mode for mountables files (i.e. disk images
              and M2I). num can be 0, in which case the file will be shown
              with its normal type in the directory or 1 which will show all

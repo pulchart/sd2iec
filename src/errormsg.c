@@ -203,8 +203,12 @@ void set_error_ts(uint8_t errornum, uint8_t track, uint8_t sector) {
       *msg++ = 'E';
       msg = appendnumber(msg, file_extension_mode);
       msg = appendbool(msg, 0, globalflags & EXTENSION_HIDING);
+      if (file_extension_lock)
+        *(msg-1) = '<';
 
       msg = appendbool(msg, '*', globalflags & POSTMATCH);
+      *msg++ = 'E';
+      msg = appendbool(msg, 'T', globalflags & CHECK_TYPE);
 
       *msg++ = 'I';
       msg = appendnumber(msg, image_as_dir);

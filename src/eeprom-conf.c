@@ -45,7 +45,7 @@ uint8_t rom_filename[ROM_NAME_LENGTH+1];
  * @globalflags: subset of the globalflags variable
  * @address    : device address set by software
  * @hardaddress: device address set by jumpers
- * @fileexts   : file extension mapping mode
+ * @fileexts   : file extension mapping mode, bit 6 type check, bit 7 lock
  * @drvflags0  : 16 bits of drv mappings, organized as 4 nybbles.
  * @drvflags1  : 16 bits of drv mappings, organized as 4 nybbles.
  * @imagedirs  : Disk images-as-directory mode
@@ -117,7 +117,8 @@ void read_configuration(void) {
   tmp = eeprom_read_byte(&storedconfig.global_flags);
   globalflags &= (uint8_t)~(POSTMATCH | FASTFORMAT |
                             EXTENSION_HIDING | D64_WITH_HIDDEN);
-  globalflags |= tmp;
+  globalflags |= tmp & (POSTMATCH | FASTFORMAT |
+                        EXTENSION_HIDING | D64_WITH_HIDDEN);
 
   if (eeprom_read_byte(&storedconfig.hardaddress) == device_hw_address()) {
     tmp = eeprom_read_byte(&storedconfig.address);
@@ -126,12 +127,18 @@ void read_configuration(void) {
       device_address = tmp;
   }
 
-  file_extension_mode = eeprom_read_byte(&storedconfig.fileexts);
+  tmp = eeprom_read_byte(&storedconfig.fileexts);
+  file_extension_mode = tmp & 0x0f;
 #ifndef CONFIG_XE5
   /* A mode stored by a build with extension mode 5 is not available */
   if (file_extension_mode > 4)
     file_extension_mode = 1;
 #endif
+  file_extension_lock = (tmp >> 7) & 1;
+  if (tmp & 0x40)
+    globalflags |= CHECK_TYPE;
+  else
+    globalflags &= (uint8_t)~CHECK_TYPE;
 
 #ifdef NEED_DISKMUX
   if (size > 9) {
@@ -174,7 +181,9 @@ void write_configuration(void) {
                                    EXTENSION_HIDING | D64_WITH_HIDDEN));
   eeprom_write_byte(&storedconfig.address, device_address);
   eeprom_write_byte(&storedconfig.hardaddress, device_hw_address());
-  eeprom_write_byte(&storedconfig.fileexts, file_extension_mode);
+  eeprom_write_byte(&storedconfig.fileexts,
+                    file_extension_mode | (uint8_t)(file_extension_lock << 7) |
+                    ((globalflags & CHECK_TYPE) ? 0x40 : 0));
 #ifdef NEED_DISKMUX
   eeprom_write_word(&storedconfig.drvconfig0, drive_config);
   eeprom_write_word(&storedconfig.drvconfig1, drive_config >> 16);

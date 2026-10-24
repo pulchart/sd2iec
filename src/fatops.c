@@ -64,6 +64,7 @@ static const PROGMEM char p00marker[] = "C64File";
 typedef enum { EXT_UNKNOWN, EXT_IS_X00, EXT_IS_TYPE } exttype_t;
 
 uint8_t file_extension_mode;
+uint8_t file_extension_lock;
 
 /* ------------------------------------------------------------------------- */
 /*  Utility functions                                                        */

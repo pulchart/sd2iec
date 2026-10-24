@@ -2385,7 +2385,18 @@ static void parse_xcommand(void) {
   case 'E':
     /* Change file extension mode */
     str = command_buffer+2;
-    if (*str == '+') {
+    if (*str == 'L') {
+      file_extension_lock = 1;
+    } else if (*str == 'U') {
+      file_extension_lock = 0;
+    } else if (*str == 'T') {
+      if (str[1] == '+')
+        globalflags |= CHECK_TYPE;
+      else if (str[1] == '-')
+        globalflags &= (uint8_t)~CHECK_TYPE;
+    } else if (file_extension_lock) {
+      /* Extension settings are locked, ignore */
+    } else if (*str == '+') {
       globalflags |= EXTENSION_HIDING;
     } else if (*str == '-') {
       globalflags &= (uint8_t)~EXTENSION_HIDING;

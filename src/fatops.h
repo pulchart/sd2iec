@@ -54,6 +54,7 @@ uint8_t  fat_petscii_length(const uint8_t *name);
 
 extern const fileops_t fatops;
 extern uint8_t file_extension_mode;
+extern uint8_t file_extension_lock;
 
 /* Generic helpers */
 uint8_t image_unmount(uint8_t part);
