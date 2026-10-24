@@ -12,6 +12,7 @@ LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, wi
 
 - Support for WS0010 OLED displays: configs `larsp-oled` (MMC2IEC) and `evo2-oled` (evo2) for a module such as the Winstar WEH001602A, dimming after inactivity
 - Scrolling of names longer than the display, the long file name of a mounted image
+- Mini builds for the ATmega644P (64 KB), see Builds
 
 ## Display
 
@@ -24,6 +25,20 @@ Line 1 shows the directory or the mounted image, line 2 the loaded or saved file
 | Dimming | no | after 45 seconds without a change |
 
 A dimmed OLED lights up on a change of content. The first press of Next, Prev or Home only wakes it, the next press acts. Pins: `doc/lcd-pinout.txt`.
+
+## Builds
+
+Full builds are for the ATmega1284P (128 KB flash), `uIEC` and `uIEC3` for the ATmega1281. Mini builds (`-mini` in the file name, `m644p`) are for boards with an ATmega644P (64 KB) and exist for `larsp`, `larsp-lcd`, `larsp-oled`, `sw1` and `sw2`. They are made with `configs/addconfig-64k`.
+
+| Feature | Full (1284P, 1281) | Mini (644P) |
+|---|---|---|
+| LCD and OLED display (`larsp-lcd`, `larsp-oled`) | on | on |
+| Epyx FastLoad, GEOS | on | on |
+| Other fastloaders: Turbodisk, Final Cartridge III, Action Replay 6, Dreamload, ULoad 3, G.I. Joe, Wheels, ELoad 1, Nippon, Maniac Mansion, Zak McKracken, N0stalgia loaders, Sam's Journey, Ultraboot, Hypra-Load, Krill, Bitfire, Booze, Sparkle, Spindle | on | off |
+| M2I images | on | off |
+| Cache of `[PSUR]00` names | on | off |
+| EEPROM file system | on | off |
+| I2C remote display | on (`larsp`, `sw2`) | off |
 
 ## Programming
 
@@ -70,6 +85,8 @@ avrdude -c usbasp -P usb -p m1284p \
 2. Copy the `.bin` to the root of the SD card and power on. The file name does not matter. Builds of this fork are development versions, the bootloader flashes them whenever the file differs from the chip.
 3. Updates: copy the new `.bin` to the card.
 
+For the ATmega644P use `-p m644p`, the `m644p` bootloader hex and a `-mini` file. The fuse values here are for the ATmega1284P.
+
 To write the firmware with the programmer and keep the bootloader, add `-D`:
 
 ```
@@ -91,7 +108,11 @@ The binary is `obj-m1284p-larsp-oled/sd2iec.bin`. All configs, into `dist/` as `
 make dist
 ```
 
-`DISTCONFIGS="larsp-lcd evo2-lcd"` builds only some configs.
+`DISTCONFIGS="larsp-lcd evo2-lcd"` builds only some configs, `DISTMINI` the mini builds. One mini build:
+
+```
+make CONFIG="configs/config-larsp-oled configs/addconfig-64k"
+```
 
 ## Version
 

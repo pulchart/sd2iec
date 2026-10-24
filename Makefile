@@ -44,10 +44,13 @@ copy clean fuses program: FORCE | $(OBJDIR) $(OBJDIR)/make.inc
 FORCE: ;
 
 # "make dist" builds every config in DISTCONFIGS into dist/ as
-# sd2iec-<version>-<mcu>-<config>.bin, the version is set in version.mk
+# sd2iec-<version>-<mcu>-<config>.bin, the version is set in version.mk.
+# The configs in DISTMINI are built again with configs/addconfig-64k for the
+# ATmega644P, as sd2iec-<version>-m644p-<config>-mini.bin
 include version.mk
 
 DISTCONFIGS ?= uIEC uIEC3 larsp plus sw1 sw2 evo2 larsp-lcd evo2-lcd larsp-oled evo2-oled
+DISTMINI    ?= larsp sw1 sw2 larsp-lcd larsp-oled
 DISTNAME    := sd2iec-$(MAJOR).$(MINOR)$(if $(PATCHLEVEL),.$(PATCHLEVEL))$(shell echo '$(PRERELEASE)' | tr A-Z a-z)
 
 .PHONY: dist
@@ -58,6 +61,14 @@ dist:
 	  suffix=$$(scripts/configparser.pl --confdata $$cfg | cut -d' ' -f1); \
 	  rm -rf obj-$$suffix; \
 	  $(MAKE) --no-print-directory CONFIG=$$cfg || exit 1; \
+	  cp obj-$$suffix/sd2iec.bin dist/$(DISTNAME)-$$suffix.bin || exit 1; \
+	  echo "  DIST   dist/$(DISTNAME)-$$suffix.bin"; \
+	done
+	$(Q)for c in $(DISTMINI); do \
+	  cfg="configs/config-$$c configs/addconfig-64k"; \
+	  suffix=$$(scripts/configparser.pl --confdata $$cfg | cut -d' ' -f1); \
+	  rm -rf obj-$$suffix; \
+	  $(MAKE) --no-print-directory CONFIG="$$cfg" || exit 1; \
 	  cp obj-$$suffix/sd2iec.bin dist/$(DISTNAME)-$$suffix.bin || exit 1; \
 	  echo "  DIST   dist/$(DISTNAME)-$$suffix.bin"; \
 	done
