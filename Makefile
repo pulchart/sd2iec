@@ -73,6 +73,19 @@ dist:
 	  echo "  DIST   dist/$(DISTNAME)-$$suffix.bin"; \
 	done
 
+# "make check-size" builds dist and fails when a build outgrows its flash or
+# leaves too little RAM for the stack, the limits are in scripts/check-size.py
+.PHONY: check-size
+check-size: dist
+	$(Q)dirs=""; \
+	for c in $(DISTCONFIGS); do \
+	  dirs="$$dirs obj-$$(scripts/configparser.pl --confdata configs/config-$$c | cut -d' ' -f1)"; \
+	done; \
+	for c in $(DISTMINI); do \
+	  dirs="$$dirs obj-$$(scripts/configparser.pl --confdata configs/config-$$c configs/addconfig-64k | cut -d' ' -f1)"; \
+	done; \
+	scripts/check-size.py $$dirs
+
 # "make dist-bootloader" downloads the AVR bootloader hex files into dist/
 BOOTLOADER_VERSION ?= 0.4.1
 BOOTLOADER_URL     ?= https://sd2iec.de/bootloader/newboot-$(BOOTLOADER_VERSION)-binaries.zip

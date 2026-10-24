@@ -114,6 +114,8 @@ make dist
 make CONFIG="configs/config-larsp-oled configs/addconfig-64k"
 ```
 
+`make check-size` builds everything and fails when a build outgrows flash or leaves too little RAM for the stack. Limits: `scripts/check-size.py`.
+
 ## Version
 
 The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for example `1.186.4-JPU`, `1.186.4-JPU+LCD` and `1.186.4-JPU+OLED`.
