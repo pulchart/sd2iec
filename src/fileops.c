@@ -286,6 +286,10 @@ static uint8_t pdir_refill(buffer_t* buf) {
         !match_name(buf->pvt.pdir.matchstr, &dent, 0))
       continue;
 
+    /* Skip if the image type doesn't match */
+    if (buf->pvt.pdir.filetype && dent.typeflags != buf->pvt.pdir.filetype)
+      continue;
+
     createentry(&dent, buf, DIR_FMT_CBM);
     return 0;
   }
@@ -482,11 +486,46 @@ static void load_directory(uint8_t secondary) {
         buf->refill = pdir_refill;
 
         if(command_length>3) {
+          /* Check for an image type match */
+          name = ustrchr(command_buffer+3, '=');
+          if (name != NULL) {
+            *name++ = 0;
+            switch (*name) {
+            case 'N':
+              buf->pvt.pdir.filetype = TYPE_NAT;
+              break;
+
+            case '4':
+              buf->pvt.pdir.filetype = TYPE_NAT + D64_TYPE_D41 - 1;
+              break;
+
+            case '7':
+              buf->pvt.pdir.filetype = TYPE_NAT + D64_TYPE_D71 - 1;
+              break;
+
+            case '8':
+              buf->pvt.pdir.filetype = TYPE_NAT + D64_TYPE_D81 - 1;
+              break;
+            }
+
+            /* The system partition has no image type */
+            if (buf->pvt.pdir.filetype)
+              buf->lastused = 31;
+          }
+
           /* Parse the name pattern */
           if (parse_path(command_buffer+3, &path, &name, 0))
             return;
 
+          /* An empty pattern with a type filter matches everything */
+          if (buf->pvt.pdir.filetype && !*name)
+            name = NULL;
+
           buf->pvt.pdir.matchstr = name;
+
+          /* Hide the system partition if the pattern doesn't match it */
+          if (name && *name && !match_name_str(name, (uint8_t *)"SYSTEM", 0))
+            buf->lastused = 31;
         }
         stick_buffer(buf);
 

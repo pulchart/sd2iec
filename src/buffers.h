@@ -119,6 +119,7 @@ typedef struct buffer_s {
     eefs_fh_t eefh;        /* File handle for eepromfs */
     struct {
       uint8_t part;        /* partition number for $=P */
+      uint8_t filetype;    /* Image type filter (0 for any) */
       uint8_t *matchstr;   /* Pointer to filename pattern */
     } pdir;
     struct {

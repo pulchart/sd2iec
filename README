@@ -74,8 +74,13 @@ Supported commands:
 
 - Partition directory:
   The CMD-style partition directory ($=P) is supported, including filters
-  ($=P:S*). All partitions are listed with type "FAT", although this could
-  change to "NAT" later for compatibility.
+  ($=P:S*). All partitions are listed with type "NAT", except mounted images,
+  they are listed with their actual type. The image type can be filtered with
+  "=N" (NAT), "=4" (D41), "=7" (D71) and "=8" (D81).
+    $=P:*=8    lists all D81 images
+    $=P:A*=N   lists NAT partitions starting with A
+  The SYSTEM line is only listed if the name filter matches it and no type
+  filter is given.
 
 - A:
   Sets the attributes of a file and removes all others.
