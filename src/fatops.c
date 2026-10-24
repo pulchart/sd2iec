@@ -521,19 +521,12 @@ static bool is_valid_fat_char(const uint8_t c) {
  */
 static bool is_valid_fat_name(const uint8_t *name) {
   const uint8_t *ptr = name;
-  unsigned char dots = 0;
 
   /* check all characters for validity */
   while (*ptr) {
-    if (*ptr == '.')
-      dots++;
-
     if (!is_valid_fat_char(*ptr++))
       return false;
   }
-
-  if (dots > 1)
-    return false;
 
   /* check the last character */
   ptr--;
@@ -1853,6 +1846,7 @@ void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
   FRESULT res;
   UINT byteswritten;
   exttype_t exttype;
+  uint8_t newlen;
 
   partition[path->part].fatfs.curr_dir = path->dir.fat;
 
@@ -1903,6 +1897,10 @@ void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
 
     res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
     while (res == FR_OK) {
+      /* The name found is this file, it is named correctly already */
+      if (!ustrcmp(finfo.fname, dent->pvt.fat.realname))
+        return;
+
       /* File exists, increment extension */
       *x00ext += 1;
       if (*x00ext == '9'+1) {
@@ -1961,9 +1959,19 @@ void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
 #endif
     } else {
       /* Normal rename */
-      pet2asc(dent->name);
       pet2asc(newname);
-      res = f_rename(&partition[path->part].fatfs, dent->name, newname);
+      newlen = ustrlen(newname);
+      if (newname[newlen-1] == '.' || newname[newlen-1] == ' ') {
+        set_error_ts(ERROR_SYNTAX_JOKER,0,0);
+        return;
+      }
+
+      if (dent->pvt.fat.realname[0]) {
+        res = f_rename(&partition[path->part].fatfs, dent->pvt.fat.realname, newname);
+      } else {
+        pet2asc(dent->name);
+        res = f_rename(&partition[path->part].fatfs, dent->name, newname);
+      }
     }
 
     if (res != FR_OK)

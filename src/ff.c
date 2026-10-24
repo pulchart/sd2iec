@@ -520,7 +520,7 @@ UCHAR make_dirfile (     /* 1: error - detected an invalid format, '\0'or'/': ne
       if (n == 0 || (n == 1 && *dirname == '.'))
         goto md_l2;
 #endif
-      if (!(a & 1) && n >= 1 && n <= 8) {  /* Enter extension part */
+      if (!(a & 1) && n >= 1 && t == 8) {  /* Enter extension part */
         n = 8; t = 11; continue;
       }
       goto md_l3;
@@ -544,6 +544,7 @@ UCHAR make_dirfile (     /* 1: error - detected an invalid format, '\0'or'/': ne
         (t == 8) ? (b &= (BYTE)~0x08) : (b &= (BYTE)~0x10);
       if (c >= 'a' && c <= 'z') {          /* Convert to upper case */
         c -= 0x20;
+        *lfn=TRUE;
         if (_USE_NTFLAG) (t == 8) ? (a |= 0x08) : (a |= 0x10);
       }
     }
@@ -574,6 +575,39 @@ UCHAR make_dirfile (     /* 1: error - detected an invalid format, '\0'or'/': ne
 /*-----------------------------------------------------------------------*/
 /* Trace a file path                                                     */
 /*-----------------------------------------------------------------------*/
+
+#if _USE_LFN != 0
+/* Check if the 8.3 name of a directory entry equals the name, ignoring case */
+static
+BOOL short_name_matches (
+  const BYTE *dptr,      /* Directory entry without long name */
+  const UCHAR *name,     /* Name to compare */
+  UINT len               /* Length of the name */
+)
+{
+  UINT i = 0;
+  BYTE n, c, d;
+
+  for (n = 0; n < 11; n++) {
+    c = dptr[n];
+    if (c == ' ') {
+      if (n < 8) { n = 7; continue; } /* skip to the extension */
+      break;
+    }
+    if (n == 8) {
+      if (i >= len || name[i++] != '.') return FALSE;
+    }
+    if (n == 0 && c == 0x05) c = 0xE5;
+    if (i >= len) return FALSE;
+    d = name[i++];
+    if (d >= 'a' && d <= 'z') d -= 0x20;
+    if (c >= 'a' && c <= 'z') c -= 0x20;
+    if (c != d) return FALSE;
+  }
+
+  return i == len;
+}
+#endif
 
 static
 FRESULT trace_path (     /* FR_OK(0): successful, !=0: error code */
@@ -698,6 +732,14 @@ FRESULT trace_path (     /* FR_OK(0): successful, !=0: error code */
             if(lfn && (match && l == *len)) { /* match */
                 memcpy(fn,&dptr[DIR_Name], 8+3);
                 fn[11] = dptr[DIR_NTres];
+                break;
+            }
+            /* An entry without long name still matches its 8.3 name */
+            if (l == 0 && !(dptr[DIR_Attr] & AM_VOL) &&
+                short_name_matches(dptr, *spath, *len)) {
+                memcpy(fn,&dptr[DIR_Name], 8+3);
+                fn[11] = dptr[DIR_NTres];
+                *len = 0;
                 break;
             }
             l=0;
@@ -1192,7 +1234,7 @@ void create_short_name(
 
   memset(buf,' ',11);
   buf[11]=0;
-  if(name[0]!='.') {
+  if(name[0]!='.' || (name[1] && (name[1]!='.' || name[2]))) {
     while(--j) { /* find the last '.' */
       if(name[j]=='.') break;
     }
@@ -1207,7 +1249,7 @@ void create_short_name(
         k++;
       }
     } else
-      j=6;
+      j=(len<6)?len:6;
   }
   i=0; /* now build start */
   while(i<6 && l<j) {
