@@ -48,7 +48,17 @@
 #include "utils.h"
 
 #include "display_lcd.h"
+#ifdef CONFIG_ONBOARD_DISPLAY
+#  include "diagnose.h"
+#  include "lcd-onboard.h"
+#  include "menu.h"
+#endif
 
+#ifdef HAVE_DUAL_INTERFACE
+/* Current device address and bus, the menu can change both */
+uint8_t device_address = CONFIG_DEFAULT_ADDR;
+uint8_t active_bus     = IEEE488;
+#endif
 
 #if defined(__AVR__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 1))
 int main(void) __attribute__((OS_main));
@@ -69,7 +79,9 @@ int main(void) {
   spi_init(SPI_SPEED_SLOW);
 #endif
   timer_init();
+#ifndef HAVE_DUAL_INTERFACE
   bus_interface_init();
+#endif
   i2c_init();
 
   /* Second part of system initialisation, switches to full speed on ARM */
@@ -82,7 +94,9 @@ int main(void) {
 
   /* Anything that does something which needs the system clock */
   /* should be placed after system_init_late() */
+#ifndef HAVE_DUAL_INTERFACE
   bus_init();    // needs delay
+#endif
   rtc_init();    // accesses I2C
   disk_init();   // accesses card
   read_configuration();
@@ -123,9 +137,45 @@ int main(void) {
   }
 #endif
 
+#ifdef CONFIG_ONBOARD_DISPLAY
+  /* Boot-time button aids:                                                */
+  /*   PREV and NEXT held: failsafe, ignore the stored EEPROM settings for */
+  /*                       this session and use the defaults               */
+  /*   PREV alone:         card switch diagnostic aid                      */
+  if (get_key_state(KEY_PREV | KEY_NEXT) == (KEY_PREV | KEY_NEXT)) {
+    eeprom_config_ignored = true;
+    device_address        = CONFIG_DEFAULT_ADDR;
+    menu_system_enabled   = true;
+    active_bus            = IEEE488;
+    get_key_press(KEY_ANY);  /* consume so the aid below does not fire */
+  } else if (menu_system_enabled && get_key_press(KEY_PREV)) {
+    board_diagnose();
+  }
+
+  if (menu_system_enabled)
+    lcd_splashscreen();
+
+  late_board_init();
+
+  for (;;) {
+    if (menu_system_enabled)
+      lcd_refresh();
+    else {
+      lcd_clear();
+      lcd_printf("#%d", device_address);
+    }
+    /* The device address may depend on the hardware and the stored */
+    /* settings, so the bus is set up here                          */
+    bus_interface_init();
+    bus_init();    // needs delay, sets up the hardware device address
+    bus_mainloop();
+    read_configuration();
+  }
+#else
   DS_BOOT();
 
   bus_mainloop();
 
   while (1);
+#endif
 }

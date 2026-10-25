@@ -26,7 +26,13 @@
 #ifndef IEC_H
 #define IEC_H
 
-#include "bus.h"
+#include <stdbool.h>
+#ifdef HAVE_DUAL_INTERFACE
+/* bus.h includes this file */
+extern uint8_t device_address;
+#else
+#  include "bus.h"
+#endif
 
 /**
  * struct iecflags_t - Bitfield of various flags, mostly IEC-related
@@ -74,6 +80,12 @@ extern iec_data_t iec_data;
 uint8_t iec_check_atn(void);
 void iec_init(void);
 
+#ifdef HAVE_DUAL_INTERFACE
+/* Returns when the user switches to the other bus */
+void iec_mainloop(void);
+void iec_sleep(bool sleep);
+#else
 void  __attribute__ ((noreturn)) iec_mainloop(void);
+#endif
 
 #endif

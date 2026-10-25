@@ -26,10 +26,18 @@
 #ifndef IEEE_H
 #define IEEE_H
 
-#include "bus.h"
+#include <stdbool.h>
+#ifdef HAVE_DUAL_INTERFACE
+void ieee488_Init(void);
+void ieee488_BusSleep(bool sleep);
+/* Returns when the user switches to the other bus */
+void ieee_mainloop(void);
+#else
+#  include "bus.h"
 
 void ieee_init(void);
 
 void __attribute__ ((noreturn)) ieee_mainloop(void);
+#endif
 
 #endif

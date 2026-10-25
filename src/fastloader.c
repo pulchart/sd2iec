@@ -60,6 +60,12 @@ volatile uint8_t parallel_rxflag;
 #endif
 
 /* Small helper for fastloaders that need to detect disk changes */
+#ifdef CONFIG_ONBOARD_DISPLAY
+/* The menu is not served while a fastloader is active */
+uint8_t check_keys(void) {
+  return 0;
+}
+#else
 uint8_t check_keys(void) {
   /* check for IEC reset only if connected (BUTTON_RESET != 0) */
   if (BUTTON_RESET != 0 && key_pressed(KEY_RESET)) {
@@ -86,6 +92,7 @@ uint8_t check_keys(void) {
 
   return 0;
 }
+#endif
 
 #ifdef CONFIG_BUS_SILENCE_REQ
 /* ATN silence */

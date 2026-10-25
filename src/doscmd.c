@@ -2331,7 +2331,12 @@ static void parse_user(void) {
   case ':':
     /* Reset - technically hard-reset */
     /* Faked because Ultima 5 sends UJ. */
+#ifdef CONFIG_ONBOARD_DISPLAY
+    free_multiple_buffers(FMB_USER);
+    set_error(ERROR_DOSVERSION);
+#else
     set_key(KEY_RESET); // handled in mainloop / BUS_IDLE
+#endif
     break;
 
   case 202: /* Shift-J */

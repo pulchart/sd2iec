@@ -26,9 +26,16 @@
 #ifndef EEPROM_CONF_H
 #define EEPROM_CONF_H
 
+#include <stdbool.h>
+
 #define ROM_NAME_LENGTH 16
 
 extern uint8_t rom_filename[ROM_NAME_LENGTH+1];
+
+#ifdef CONFIG_ONBOARD_DISPLAY
+/* Set at power-on by holding PREV and NEXT: the stored settings are ignored */
+extern bool eeprom_config_ignored;
+#endif
 
 void read_configuration(void);
 void write_configuration(void);

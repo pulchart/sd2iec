@@ -30,9 +30,15 @@
 #include "fatops.h"
 #include "flags.h"
 #include "iec.h"
+#include "bus.h"
 #include "timer.h"
 #include "ustring.h"
+#include "uart.h"
 #include "eeprom-conf.h"
+#ifdef CONFIG_ONBOARD_DISPLAY
+#  include "lcd-onboard.h"
+#  include "menu.h"
+#endif
 
 uint8_t rom_filename[ROM_NAME_LENGTH+1];
 
@@ -50,6 +56,9 @@ uint8_t rom_filename[ROM_NAME_LENGTH+1];
  * @drvflags1  : 16 bits of drv mappings, organized as 4 nybbles.
  * @imagedirs  : Disk images-as-directory mode
  * @romname    : M-R rom emulation file name (zero-padded, but not terminated)
+ * @active_bus : IEC or IEEE488
+ * @menu_system_enabled : the buttons control the menu or set the device address
+ * @lcd_contrast, @lcd_brightness : settings of the on-board display
  *
  * This is the data structure for the contents of the EEPROM.
  *
@@ -69,6 +78,12 @@ static EEMEM struct {
   uint16_t drvconfig1;
   uint8_t  imagedirs;
   uint8_t  romname[ROM_NAME_LENGTH];
+#ifdef CONFIG_ONBOARD_DISPLAY
+  uint8_t  active_bus;
+  uint8_t  menu_system_enabled;
+  uint8_t  lcd_contrast;
+  uint8_t  lcd_brightness;
+#endif
 } __attribute__((packed)) storedconfig;
 
 /**
@@ -78,9 +93,21 @@ static EEMEM struct {
  * If the stored checksum doesn't match the calculated one nothing will
  * be changed.
  */
+#ifdef CONFIG_ONBOARD_DISPLAY
+bool eeprom_config_ignored = false;
+#endif
+
 void read_configuration(void) {
   uint_fast16_t i,size;
   uint8_t checksum, tmp;
+#ifdef CONFIG_ONBOARD_DISPLAY
+  bool rewrite_required = false;
+  /* active_bus reflects the last user selection once the system is up, */
+  /* only the first (power-on) call may load it from the EEPROM         */
+  static bool active_bus_from_eeprom = true;
+  bool load_active_bus = active_bus_from_eeprom;
+  active_bus_from_eeprom = false;
+#endif
 
   /* Set default values */
   globalflags         |= POSTMATCH;            /* Post-* matching enabled */
@@ -88,17 +115,28 @@ void read_configuration(void) {
   set_drive_config(get_default_driveconfig()); /* Set the default drive configuration */
   memset(rom_filename, 0, sizeof(rom_filename));
 
+#ifdef CONFIG_ONBOARD_DISPLAY
+  /* Failsafe: PREV and NEXT held at power-on (see main.c) keep the */
+  /* defaults and leave the EEPROM alone                            */
+  if (eeprom_config_ignored)
+    return;
+#else
   /* Use the NEXT button to skip reading the EEPROM configuration */
   if (!(buttons_read() & BUTTON_NEXT)) {
     set_key(IGNORE_KEYS);
     return;
   }
+#endif
 
   size = eeprom_read_word(&storedconfig.structsize);
 
   /* abort if the size bytes are not set */
   if (size == 0xffff) {
+#ifdef CONFIG_ONBOARD_DISPLAY
+    write_configuration();
+#else
     eeprom_safety();
+#endif
     return;
   }
 
@@ -109,23 +147,50 @@ void read_configuration(void) {
 
   /* Abort if the checksum doesn't match */
   if (checksum != eeprom_read_byte(&storedconfig.checksum)) {
+#ifdef CONFIG_ONBOARD_DISPLAY
+    write_configuration();
+#else
     eeprom_safety();
+#endif
     return;
   }
 
   /* Read data from EEPROM */
+#ifdef CONFIG_ONBOARD_DISPLAY
+  /* Read this first because it affects device_hw_address() */
+  if (size > 31)
+    menu_system_enabled = eeprom_read_byte(&storedconfig.menu_system_enabled);
+#endif
   tmp = eeprom_read_byte(&storedconfig.global_flags);
   globalflags &= (uint8_t)~(POSTMATCH | FASTFORMAT |
                             EXTENSION_HIDING | D64_WITH_HIDDEN);
   globalflags |= tmp & (POSTMATCH | FASTFORMAT |
                         EXTENSION_HIDING | D64_WITH_HIDDEN);
 
+#ifdef CONFIG_ONBOARD_DISPLAY
+  {
+    uint8_t current_hw_addr = device_hw_address();
+
+    if (current_hw_addr != eeprom_read_byte(&storedconfig.hardaddress)) {
+      device_address = current_hw_addr;
+      rewrite_required = true;
+    } else {
+      device_address = eeprom_read_byte(&storedconfig.address);
+    }
+    /* Reject an implausible address, valid are 4..30 */
+    if (device_address < 4 || device_address > 30) {
+      device_address = current_hw_addr;
+      rewrite_required = true;
+    }
+  }
+#else
   if (eeprom_read_byte(&storedconfig.hardaddress) == device_hw_address()) {
     tmp = eeprom_read_byte(&storedconfig.address);
     /* Ignore an address outside the valid CBM range */
     if (tmp >= 4 && tmp <= 30)
       device_address = tmp;
   }
+#endif
 
   tmp = eeprom_read_byte(&storedconfig.fileexts);
   file_extension_mode = tmp & 0x0f;
@@ -161,8 +226,30 @@ void read_configuration(void) {
   if (size > 29)
     eeprom_read_block(rom_filename, &storedconfig.romname, ROM_NAME_LENGTH);
 
+#ifdef CONFIG_ONBOARD_DISPLAY
+  if (load_active_bus && size > 30)
+    active_bus = eeprom_read_byte(&storedconfig.active_bus);
+  /* Only IEC and IEEE488 are valid, anything else is a stale EEPROM */
+  if (active_bus != IEC && active_bus != IEEE488) {
+    active_bus = IEEE488;
+    rewrite_required = true;
+  }
+
+  if (size > 32) {
+    lcd_contrast = eeprom_read_byte(&storedconfig.lcd_contrast);
+    lcd_brightness = eeprom_read_byte(&storedconfig.lcd_brightness);
+    lcd_set_contrast(lcd_contrast);
+    lcd_set_brightness(lcd_brightness);
+  }
+#endif
+
   /* Prevent problems due to accidental writes */
   eeprom_safety();
+
+#ifdef CONFIG_ONBOARD_DISPLAY
+  if (rewrite_required)
+    write_configuration();
+#endif
 }
 
 /**
@@ -191,6 +278,12 @@ void write_configuration(void) {
   eeprom_write_byte(&storedconfig.imagedirs, image_as_dir);
   memset(rom_filename+ustrlen(rom_filename), 0, sizeof(rom_filename)-ustrlen(rom_filename));
   eeprom_write_block(rom_filename, &storedconfig.romname, ROM_NAME_LENGTH);
+#ifdef CONFIG_ONBOARD_DISPLAY
+  eeprom_write_byte(&storedconfig.active_bus, active_bus);
+  eeprom_write_byte(&storedconfig.menu_system_enabled, menu_system_enabled);
+  eeprom_write_byte(&storedconfig.lcd_contrast, lcd_contrast);
+  eeprom_write_byte(&storedconfig.lcd_brightness, lcd_brightness);
+#endif
 
   /* Calculate checksum over EEPROM contents */
   checksum = 0;

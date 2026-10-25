@@ -54,6 +54,12 @@ void uart_putcrlf(void);
 #define uart_putcrlf() do {} while(0)
 #define uart_trace(a,b,c) do {} while(0)
 
+#ifdef CONFIG_ONBOARD_DISPLAY
+/* There is no stdout without the UART */
+#  include <stdio.h>
+#  define printf(...) do {} while(0)
+#endif
+
 #endif
 
 #endif

@@ -52,14 +52,20 @@
 #include "timer.h"
 #include "uart.h"
 #include "iec.h"
+#include "bus.h"
+#ifdef CONFIG_ONBOARD_DISPLAY
+#  include "menu.h"
+#endif
 #include "display_lcd.h"
 
 /* ------------------------------------------------------------------------- */
 /*  Global variables                                                         */
 /* ------------------------------------------------------------------------- */
 
+#ifndef CONFIG_ONBOARD_DISPLAY
 /* Current device address */
 uint8_t device_address;
+#endif
 
 iec_data_t iec_data;
 
@@ -555,20 +561,53 @@ void iec_init(void) {
   /* Read the hardware-set device address */
   device_hw_address_init();
   delay_ms(1);
+#if CONFIG_HARDWARE_VARIANT != HW_PETSDPLUS
   device_address = device_hw_address();
+#endif
 }
+#ifndef HAVE_DUAL_INTERFACE
 void bus_init(void) __attribute__((weak, alias("iec_init")));
+#endif
+
+#ifdef HAVE_DUAL_INTERFACE
+/* Release the bus while the user does something else */
+void iec_sleep(bool sleep) {
+  if (sleep) {
+    set_atn_irq(0);
+    set_data(1);
+    set_clock(1);
+    set_error(ERROR_OK);
+    set_dirty_led(1);
+  } else {
+    update_leds();
+    iec_data.bus_state = BUS_IDLE;
+    set_atn_irq(1);
+  }
+}
+#endif
 
 void iec_mainloop(void) {
   int16_t cmd = 0; // make gcc happy...
+#ifdef HAVE_DUAL_INTERFACE
+  bool switch_to_ieee488 = false;
+#endif
 
   set_error(ERROR_DOSVERSION);
 
   iec_data.bus_state = BUS_IDLE;
 
+#ifdef HAVE_DUAL_INTERFACE
+  do {
+#else
   while (1) {
+#endif
     switch (iec_data.bus_state) {
     case BUS_SLEEP:
+#ifdef CONFIG_ONBOARD_DISPLAY
+      handle_lcd();
+      switch_to_ieee488 = handle_buttons();
+      break;
+#else
       set_atn_irq(0);
       set_data(1);
       set_clock(1);
@@ -586,11 +625,25 @@ void iec_mainloop(void) {
 
       iec_data.bus_state = BUS_IDLE;
       break;
+#endif
 
     case BUS_IDLE:  // EBFF
       /* Wait for ATN */
       parallel_set_dir(PARALLEL_DIR_IN);
       set_atn_irq(1);
+#ifdef CONFIG_ONBOARD_DISPLAY
+      while (IEC_ATN) {
+        handle_lcd();
+        if (handle_buttons()) {
+          switch_to_ieee488 = true;
+          break;
+        }
+        system_sleep();
+      }
+
+      iec_data.bus_state = BUS_FOUNDATN;
+      break;
+#else
       while (1) {
         if (key_pressed(KEY_RESET)) {
           /* close all channels and set dos version as error message */
@@ -618,6 +671,7 @@ void iec_mainloop(void) {
         system_sleep();
       }
       break;
+#endif
 
     case BUS_FOUNDATN: // E85B
       /* Pull data low to say we're here */
@@ -834,6 +888,12 @@ void iec_mainloop(void) {
         iec_data.bus_state = BUS_IDLE;
       break;
     }
+#ifdef HAVE_DUAL_INTERFACE
+  } while (!switch_to_ieee488);
+#else
   }
+#endif
 }
+#ifndef HAVE_DUAL_INTERFACE
 void bus_mainloop(void) __attribute__ ((weak, alias("iec_mainloop")));
+#endif

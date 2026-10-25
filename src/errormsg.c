@@ -39,6 +39,9 @@
 #include "utils.h"
 #include "errormsg.h"
 #include "display_lcd.h"
+#ifdef CONFIG_ONBOARD_DISPLAY
+#  include "menu.h"
+#endif
 
 uint8_t current_error;
 uint8_t error_buffer[CONFIG_ERROR_BUFFER_SIZE];
@@ -276,6 +279,9 @@ void set_error_ts(uint8_t errornum, uint8_t track, uint8_t sector) {
 
   /* Send message without the final 0x0d */
   display_errorchannel(msg - error_buffer, error_buffer);
+#ifdef CONFIG_ONBOARD_DISPLAY
+  lcd_update_disk_status();
+#endif
 }
 
 /* Callback for the error channel buffer */

@@ -28,8 +28,18 @@
 
 #include "dirent.h"
 
+#ifdef CONFIG_ONBOARD_DISPLAY
+/* Disk images are selected with the menu, there are no swap lists */
+static inline void change_init(void) {}
+static inline void change_disk(void) {}
+static inline void set_changelist(path_t *path, uint8_t *filename) {
+  (void)path;
+  (void)filename;
+}
+#else
 void change_init(void);
 void change_disk(void);
 void set_changelist(path_t *path, uint8_t *filename);
+#endif
 
 #endif

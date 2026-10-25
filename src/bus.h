@@ -26,10 +26,94 @@
 #ifndef BUS_H
 #define BUS_H
 
+#ifdef HAVE_DUAL_INTERFACE
+
+#include <stdbool.h>
+
+#include "config.h"
+#include "iec.h"
+#include "ieee.h"
+#include "uart.h"
+
+extern uint8_t device_address;
+
+enum { IEC, IEEE488 };
+
+void iec_interface_init(void);
+void ieee_interface_init(void);
+
+extern uint8_t active_bus;
+
+static inline void bus_interface_init(void) {
+  uart_puts_P(PSTR("bus_interface_init()\r\n"));
+  if (active_bus == IEC) {
+    uart_puts_P(PSTR("  ->iec_interface_init()\r\n"));
+    iec_interface_init();
+  } else {
+    uart_puts_P(PSTR("  ->ieee_interface_init()\r\n"));
+    ieee_interface_init();
+  }
+}
+
+static inline void bus_init(void) {
+  uart_puts_P(PSTR("bus_init()\r\n"));
+  if (active_bus == IEC) {
+    uart_puts_P(PSTR("  ->iec_init()\r\n"));
+    iec_init();
+  } else {
+    uart_puts_P(PSTR("  ->ieee488_Init()\r\n"));
+    ieee488_Init();
+  }
+}
+
+#ifdef IEC_SLOW_IEEE_FAST
+
+#include <avr/power.h>
+#include "uart.h"
+#include "timer.h"
+#include "spi.h"
+
+static inline void set_clock_prescaler(void) {
+  uart_flush();
+  if (active_bus == IEC) clock_prescale_set(clock_div_2);    // Set clock to 16/2 =  8 MHz
+  else                   clock_prescale_set(clock_div_1);    // Set clock to        16 MHz
+  timer_init();
+  uart_init();
+  spi_set_speed(SPI_SPEED_FAST);
+}
+#else
+static inline void set_clock_prescaler(void) {}
+#endif
+
+static inline void bus_mainloop(void) {
+  uart_puts_P(PSTR("bus_mainloop()\r\n"));
+  uart_puts_P(PSTR("  ->set_clock_prescaler()\r\n"));
+  set_clock_prescaler();
+  if (active_bus == IEC) {
+    uart_puts_P(PSTR("  ->iec_mainloop()\r\n"));
+    iec_mainloop();
+  } else {
+    uart_puts_P(PSTR("  ->ieee_mainloop()\r\n"));
+    ieee_mainloop();
+  }
+}
+
+static inline void bus_sleep2(bool sleep) {
+  uart_puts_P(PSTR("bus_sleep()\r\n"));
+  if (active_bus == IEC)
+    iec_sleep(sleep);
+  else
+    ieee488_BusSleep(sleep);
+}
+
+#else
+
 extern uint8_t device_address;
 
 void bus_interface_init(void);
 void bus_init(void);
 void __attribute__((noreturn)) bus_mainloop(void);
+
+#endif /* HAVE_DUAL_INTERFACE */
 
 #endif
