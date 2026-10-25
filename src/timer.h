@@ -29,6 +29,41 @@
 #include "arch-timer.h"
 #include "atomic.h"
 
+#ifdef CONFIG_ONBOARD_DISPLAY
+
+// Bit masks for the keys
+#define KEY_SEL     (1<<0)
+#define KEY_NEXT    (1<<1)
+#define KEY_PREV    (1<<2)
+#define KEY_ANY     0xff
+
+
+
+/* Check if a key has been pressed long enough such that the key repeat
+   functionality kicks in. After a small setup delay the key is reported
+   being pressed in subsequent calls to this function. This simulates the
+   user repeatedly pressing and releasing the key.
+*/
+uint8_t get_key_rpt(uint8_t key_mask);
+uint8_t get_key_autorepeat(uint8_t key_mask);
+
+// Check if a key has been pressed. Each pressed key is reported only once
+uint8_t get_key_press(uint8_t key_mask);
+
+// Check if a key is pressed right now
+uint8_t get_key_state(uint8_t key_mask);
+
+// Check if a key has been pressed for a short while
+uint8_t get_key_short(uint8_t key_mask);
+
+// Check if a key has been pressed for a long while
+uint8_t get_key_long(uint8_t key_mask);
+
+// Wait until all keys are released
+void wait_anykey(void);
+
+#else
+
 // Bit masks for the (simulated) keys
 #define KEY_NEXT    (1<<0)
 #define KEY_PREV    (1<<1)
@@ -44,6 +79,8 @@
 uint8_t key_pressed(uint8_t mask);
 void reset_key(uint8_t mask);
 void set_key(uint8_t mask);
+
+#endif
 
 // Global system timing, 100 ticks per second
 tick_t getticks(void);

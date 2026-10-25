@@ -27,6 +27,9 @@
 #include "config.h"
 #include "avrcompat.h"
 #include "spi.h"
+#ifdef IEC_SLOW_IEEE_FAST
+#  include "bus.h"
+#endif
 
 /* interrupts disabled, SPI enabled, MSB first, master mode */
 /* leading edge rising, sample on leading edge, clock bits cleared */
@@ -53,11 +56,26 @@ static inline __attribute__((always_inline)) void spi_set_divisor(const uint8_t 
 }
 
 void spi_set_speed(spi_speed_t speed) {
+#ifdef IEC_SLOW_IEEE_FAST
+  /* The MCU runs at 8 MHz for IEC and at 16 MHz for IEEE-488 */
+  if (speed == SPI_SPEED_FAST) {
+    if (active_bus == IEC)
+      spi_set_divisor(SPI_DIVISOR_FAST);
+    else
+      spi_set_divisor(SPI_DIVISOR_FAST * 2);
+  } else {
+    if (active_bus == IEC)
+      spi_set_divisor(SPI_DIVISOR_SLOW);
+    else
+      spi_set_divisor(SPI_DIVISOR_SLOW * 2);
+  }
+#else
   if (speed == SPI_SPEED_FAST) {
     spi_set_divisor(SPI_DIVISOR_FAST);
   } else {
     spi_set_divisor(SPI_DIVISOR_SLOW);
   }
+#endif
 }
 
 void spi_init(spi_speed_t speed) {

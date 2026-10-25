@@ -25,10 +25,27 @@
 
 #include "config.h"
 #include "timer.h"
+#ifdef CONFIG_ONBOARD_DISPLAY
+#  include "bus.h"
+#endif
 
 void timer_init(void) {
+#ifdef CONFIG_ONBOARD_DISPLAY
+  /* Count F_CPU/8 in timer 0 */
+  TCCR0B = _BV(CS01);
+#endif
+
+#ifdef IEC_SLOW_IEEE_FAST
+  /* The clock runs at 8 MHz for IEC and 16 MHz for IEEE-488, so the */
+  /* interrupt must be set up again after switching the bus          */
+  if (active_bus == IEC)
+    OCR1A  = F_CPU / 64 / 100 - 1;
+  else
+    OCR1A  = (F_CPU * 2) / 64 / 100 - 1;
+#else
   /* Set up a 100Hz interrupt using timer 1 */
   OCR1A  = F_CPU / 64 / 100 - 1;
+#endif
   TCNT1  = 0;
   TCCR1A = 0;
   TCCR1B = _BV(WGM12) | _BV(CS10) | _BV(CS11);
