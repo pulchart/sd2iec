@@ -41,6 +41,12 @@ HEXFORMAT = ihex
 # Target file name (without extension).
 TARGET = $(OBJDIR)/sd2iec
 
+# List any extra directories to look for include files here.
+#     Each directory must be seperated by a space.
+#     Use forward slashes for directory separators.
+#     For a directory that has spaces, enclose it in quotes.
+EXTRAINCDIRS =
+
 # List C source files here. (C dependencies are automatically generated.)
 SRC  = buffers.c fatops.c fileops.c main.c errormsg.c
 SRC += doscmd.c ff.c d64ops.c diskchange.c
@@ -94,6 +100,17 @@ ifeq ($(CONFIG_REMOTE_DISPLAY),y)
   NEED_I2C := y
 endif
 
+ifeq ($(CONFIG_ONBOARD_DISPLAY),y)
+  # On-board display and menu with its own key handling and IEEE-488 driver
+  SRC := $(filter-out timer.c diskchange.c ieee.c,$(SRC))
+  SRC += timer-menu.c menu.c diagnose.c avr/lcd-onboard.c
+  ifeq ($(CONFIG_HAVE_IEEE),y)
+    SRC += ieee-nils.c
+  endif
+  EXTRAINCDIRS += lcd-i2c-pwm-io
+  NEED_I2C := y
+endif
+
 ifeq ($(CONFIG_P00CACHE),y)
   SRC += p00cache.c
 endif
@@ -142,13 +159,6 @@ OPT = s
 DEBUG = dwarf-2
 
 
-# List any extra directories to look for include files here.
-#     Each directory must be seperated by a space.
-#     Use forward slashes for directory separators.
-#     For a directory that has spaces, enclose it in quotes.
-EXTRAINCDIRS =
-
-
 # Compiler flag to set the C Standard level.
 #     c89   = "ANSI" C
 #     gnu89 = c89 plus GCC extensions
@@ -159,6 +169,10 @@ CSTANDARD = -std=gnu99
 
 # Place -D or -U options here
 CDEFS = -DF_CPU=$(CONFIG_MCU_FREQ)UL
+
+ifeq ($(CONFIG_ONBOARD_DISPLAY),y)
+CDEFS += -DHWNAME=\"$(CONFIG_HARDWARE_NAME)\"
+endif
 
 ifeq ($(CONFIG_LCD_WS0010),y)
 PRERELEASE := $(PRERELEASE)+OLED
@@ -235,6 +249,7 @@ endif
 #             and function names needs to be present in the assembler source
 #             files -- see avr-libc docs [FIXME: not yet described there]
 ASFLAGS = -Wa,-gstabs -I$(OBJDIR) -Isrc -Isrc/$(CONFIG_ARCH)
+ASFLAGS += $(patsubst %,-I%,$(EXTRAINCDIRS))
 
 
 #---------------- Linker Options ----------------
