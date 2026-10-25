@@ -48,6 +48,8 @@
 #define D64_TYPE_D41  2
 #define D64_TYPE_D71  3
 #define D64_TYPE_D81  4
+#define D64_TYPE_D80  5
+#define D64_TYPE_D82  6
 #define D64_IS_READONLY   64
 #define D64_HAS_ERRORINFO 128
 
