@@ -19,6 +19,7 @@ LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, wi
 - `XN+`/`XN-` fast format, `XET+`/`XET-` strict file type check, `XEL`/`XEU` lock of the extension settings, `XH+`/`XH-` hidden files in images
 - Partition listing filtered by image type, `$=P:*=N`
 - Fixes for `COPY` errors, REL record length 13, locked files in images and error codes
+- Boards `petSD+` and `cbmSD-mini` (configs `petSD+` and `cbmSDmini`) with an on-board display and menu, the bus (IEC or IEEE-488) is selected at runtime, and D80 and D82 disk images
 
 ## Display
 
@@ -99,6 +100,8 @@ Full builds are for the ATmega1284P (128 KB flash), `uIEC` and `uIEC3` for the A
 | Extension mode 5 (`XE5`) | on | off |
 | EEPROM file system | on | off |
 | I2C remote display | on (`larsp`, `sw2`) | off |
+
+The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. Of the fastloaders only JiffyDOS is built, the other routines do not support the non-inverted IEC output lines of these boards. D80 and D82 images (8050 and 8250) are supported by these two builds only.
 
 ## Programming
 

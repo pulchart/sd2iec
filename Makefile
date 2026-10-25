@@ -49,7 +49,7 @@ FORCE: ;
 # ATmega644P, as sd2iec-<version>-m644p-<config>-mini.bin
 include version.mk
 
-DISTCONFIGS ?= uIEC uIEC3 larsp plus sw1 sw2 evo2 larsp-lcd evo2-lcd larsp-oled evo2-oled
+DISTCONFIGS ?= uIEC uIEC3 larsp plus sw1 sw2 evo2 larsp-lcd evo2-lcd larsp-oled evo2-oled petSD+ cbmSDmini
 DISTMINI    ?= larsp sw1 sw2 larsp-lcd larsp-oled
 DISTNAME    := sd2iec-$(MAJOR).$(MINOR)$(if $(PATCHLEVEL),.$(PATCHLEVEL))$(shell echo '$(PRERELEASE)' | tr A-Z a-z)
 
