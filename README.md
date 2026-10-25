@@ -89,6 +89,8 @@ Hold NEXT while powering on to skip the settings saved in the EEPROM. The firmwa
 
 The builds are for the ATmega1284P (128 KB flash), `uIEC` and `uIEC3` for the ATmega1281.
 
+The `uIEC` build mounts 15 partitions at most, the other builds keep the number of their config.
+
 The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. Of the fastloaders only JiffyDOS is built, the other routines do not support the non-inverted IEC output lines of these boards. D80 and D82 images (8050 and 8250) are supported by these two builds only.
 
 ## Programming
@@ -196,5 +198,7 @@ Sent on the command channel, for example `@"XT1HELLO"` with JiffyDOS (the quotes
 ## Credits
 
 LCD code by Draco, Seanser, Sascha Bader, andi6510, CapFuture1975 and Sven Oliver Moll, based on the LCD library by Peter Fleury. sd2iec by Ingo Korb and contributors, see `README`.
+
+FAT file system: [FatFs](https://elm-chan.org/fsw/ff/) by ChaN, adapted for sd2iec (`src/fatfs`).
 
 Free software under GPL version 2 only, see `COPYING`.
