@@ -150,7 +150,9 @@ typedef struct {
 typedef struct {
 	BYTE	fs_type;	/* Filesystem type (0:not mounted) */
 	BYTE	pdrv;		/* Physical drive that holds this volume */
+#if !FF_SD2IEC
 	BYTE	ldrv;		/* Logical drive number (used only when FF_FS_REENTRANT) */
+#endif
 	BYTE	n_fats;		/* Number of FATs (1 or 2) */
 	BYTE	wflag;		/* win[] status (b0:dirty) */
 	BYTE	fsi_flag;	/* Allocation information control (b7:disabled, b0:dirty) */
@@ -160,7 +162,7 @@ typedef struct {
 #if FF_MAX_SS != FF_MIN_SS
 	WORD	ssize;		/* Sector size (512, 1024, 2048 or 4096) */
 #endif
-#if FF_USE_LFN
+#if FF_USE_LFN && !FF_SD2IEC
 	WCHAR*	lfnbuf;		/* Pointer to LFN working buffer */
 #endif
 #if !FF_FS_READONLY
@@ -185,7 +187,11 @@ typedef struct {
 	FFXCWDS	xcwds2;		/* Working buffer to follow the path */
 #endif
 #endif
+#if FF_SD2IEC
+	BYTE*	win;		/* Disk access window shared by all volumes (directory, FAT and file data) */
+#else
 	BYTE	win[FF_MAX_SS];	/* Disk access window for directory, FAT (and file data in tiny cfg) */
+#endif
 } FATFS;
 
 
@@ -195,8 +201,12 @@ typedef struct {
 typedef struct {
 	FATFS*	fs;			/* Pointer to the volume holding this object */
 	WORD	id;			/* Volume mount ID when this object was opened */
-	BYTE	attr;		/* Object attribute */
+#if !FF_SD2IEC
+	BYTE	attr;		/* Object attribute (kept in DIR.attr in the sd2iec configuration) */
+#endif
+#if FF_FS_EXFAT
 	BYTE	stat;		/* Object chain status (exFAT: b1-0: =0:not contiguous, =2:contiguous, =3:fragmented in this session, b2:sub-directory stretched) */
+#endif
 	DWORD	sclust;		/* Object data cluster (0:no data or root directory) */
 	FSIZE_t	objsize;	/* Object size (valid when sclust != 0) */
 #if FF_FS_EXFAT
@@ -245,6 +255,7 @@ typedef struct {
 	LBA_t	sect;		/* Current sector (0:no more item to read) */
 	BYTE*	dir;		/* Pointer to the directory item in the win[] in filesystem object */
 	BYTE	fn[12];		/* SFN (in/out) {body[0-7],ext[8-10],status[11]} */
+	BYTE	attr;		/* Attribute of the object found */
 #if FF_USE_LFN
 	DWORD	blk_ofs;	/* Offset of current entry block being processed (0xFFFFFFFF:invalid) */
 #endif
@@ -255,8 +266,32 @@ typedef struct {
 
 
 
+#if FF_SD2IEC
+/* Directory cursor of l_opendir() and l_readdir(), the working data of DIR is not kept */
+typedef struct {
+	FATFS*	fs;			/* Pointer to the volume holding the directory */
+	WORD	id;			/* Volume mount ID when the directory was opened */
+	DWORD	sclust;		/* Start cluster of the directory (0:root directory) */
+	DWORD	dptr;		/* Current read offset */
+	DWORD	clust;		/* Current cluster */
+	LBA_t	sect;		/* Current sector (0:no more item to read) */
+} DIRC;
+#endif
+
+
 /* File/directory information structure (FILINFO) */
 
+#if FF_SD2IEC
+typedef struct {
+	FSIZE_t	fsize;			/* File size (invalid for directory) */
+	WORD	fdate;			/* Date of file modification or directory creation */
+	WORD	ftime;			/* Time of file modification or directory creation */
+	BYTE	fattrib;		/* Object attribute */
+	DWORD	clust;			/* Start cluster (0 for the root directory) */
+	BYTE	fname[12 + 1];	/* Short name (8.3, upper case) */
+	BYTE*	lfn;			/* Long name buffer of FF_MAX_LFN + 1 characters supplied by the caller, or NULL */
+} FILINFO;
+#else
 typedef struct {
 	FSIZE_t	fsize;			/* File size (invalid for directory) */
 	WORD	fdate;			/* Date of file modification or directory creation */
@@ -273,6 +308,7 @@ typedef struct {
 	TCHAR	fname[12 + 1];	/* Object name */
 #endif
 } FILINFO;
+#endif
 
 
 
@@ -311,6 +347,11 @@ typedef enum {
 	FR_NOT_ENOUGH_CORE,		/* (17) LFN working buffer could not be allocated, given buffer size is insufficient or too deep path */
 	FR_TOO_MANY_OPEN_FILES,	/* (18) Number of open files > FF_FS_LOCK */
 	FR_INVALID_PARAMETER	/* (19) Given parameter is invalid */
+#if FF_SD2IEC
+	,FR_IS_DIRECTORY		/* (20) Creating a file that is a directory */
+	,FR_IS_READONLY			/* (21) Creating a file that is read-only */
+	,FR_DIR_NOT_EMPTY		/* (22) Removing a directory that is not empty */
+#endif
 } FRESULT;
 
 
@@ -355,6 +396,18 @@ int f_puts (const TCHAR* str, FIL* cp);								/* Put a string to the file */
 int f_printf (FIL* fp, const TCHAR* str, ...);						/* Put a formatted string to the file */
 TCHAR* f_gets (TCHAR* buff, int len, FIL* fp);						/* Get a string from the file */
 
+#if FF_SD2IEC
+/* sd2iec extensions, implemented at the end of ff.c */
+FRESULT l_mount (BYTE drv, FATFS* fs);								/* Mount a partition of a drive (drv = drive * 16 + partition) */
+void l_select (FATFS* fs);											/* Select the volume used by the path based functions */
+FRESULT l_opendir (FATFS* fs, DWORD clst, DIRC* dc);				/* Open a directory by its start cluster (0:root) */
+FRESULT l_readdir (DIRC* dc, FILINFO* fno);							/* Read a directory item including . and .. */
+FRESULT l_opencluster (FATFS* fs, FIL* fp, DWORD clst);				/* Open a cluster as a read-only file of cluster size */
+FRESULT l_getfree (FATFS* fs, DWORD* nclst, DWORD maxclst);			/* Get number of free clusters, stop at maxclst (0:no limit) */
+FRESULT l_parent (FATFS* fs, DWORD clst, DWORD* parent);				/* Get the start cluster of the parent of a directory */
+FRESULT l_getlabel (FATFS* fs, BYTE* label);						/* Get volume label */
+#endif
+
 /* Some API fucntions are implemented as macro */
 
 #define f_eof(fp) ((int)((fp)->fptr == (fp)->obj.objsize))
@@ -379,7 +432,7 @@ DWORD get_fattime (void);	/* Get current time */
 #endif
 
 
-/* LFN support functions (defined in ffunicode.c) */
+/* LFN support functions (defined in ffcharset.c) */
 
 #if FF_USE_LFN >= 1
 WCHAR ff_oem2uni (WCHAR oem, WORD cp);	/* OEM code to Unicode conversion */
