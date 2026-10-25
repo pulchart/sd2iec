@@ -33,6 +33,12 @@
 #endif
 
 #include "autoconf.h"
+
+/* Device address used if the hardware does not set it */
+#ifndef CONFIG_DEFAULT_ADDR
+#  define CONFIG_DEFAULT_ADDR 11
+#endif
+
 #include "arch-config.h"
 
 /* Disable COMMAND_CHANNEL_DUMP if UART_DEBUG is disabled */
@@ -48,6 +54,13 @@
 /* Generate a dummy function if there is no board-specific initialisation */
 #ifndef HAVE_BOARD_INIT
 static inline void board_init(void) {
+  return;
+}
+#endif
+
+/* Boards with a display and menu run a second initialisation later */
+#ifndef HAVE_LATE_BOARD_INIT
+static inline void late_board_init(void) {
   return;
 }
 #endif
