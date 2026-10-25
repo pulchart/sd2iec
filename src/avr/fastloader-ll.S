@@ -37,6 +37,33 @@
 #  error "CONFIG_MCU_FREQ must be defined for delay cycle calculation."
 #endif
 
+/* Most AVR targets have inverted output lines. The macros xsbi (x-set-bit)
+   and xcbi (x-clear-bit) drive a line high or low regardless of that:
+
+   xsbi: sets the line high (+5 volts)
+   xcbi: sets the line low  ( 0 volts)
+*/
+#ifdef IEC_OUTPUTS_INVERTED
+#  define xsbi cbi
+#  define xcbi sbi
+#else
+#  define xsbi sbi
+#  define xcbi cbi
+#endif
+
+/* Only the JiffyDOS routines know about non-inverted output lines */
+#ifdef IEC_OUTPUTS_NONINVERTED
+#  if defined(CONFIG_LOADER_TURBODISK) || defined(CONFIG_LOADER_FC3) || \
+      defined(CONFIG_LOADER_DREAMLOAD) || defined(CONFIG_LOADER_ULOAD3) || \
+      defined(CONFIG_LOADER_ELOAD1) || defined(CONFIG_LOADER_EPYXCART) || \
+      defined(CONFIG_LOADER_GEOS) || defined(CONFIG_LOADER_WHEELS) || \
+      defined(CONFIG_LOADER_AR6) || defined(CONFIG_LOADER_N0SDOS) || \
+      defined(CONFIG_LOADER_ULTRABOOT) || defined(CONFIG_LOADER_HYPRALOAD) || \
+      defined(CONFIG_LOADER_KRILL) || defined(CONFIG_FAST_SERIAL)
+#    error This fastloader does not support non-inverted IEC output lines
+#  endif
+#endif
+
 /* Timing offsets for JiffyDos read/write (3.75 us) */
 /* These values are added to the delayloop counter before the first      */
 /* bitpair read/write. They were determined experimentally to center the */
@@ -241,12 +268,12 @@ jiffy_receive:
         clr     r25             ; clear high byte of return value
 
         ;; Set clock+data high
-        cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
-        cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
+        xsbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
+        xsbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
 
         ;; Wait until clock is high and emulate ATN-Ack
 0:      sbis    _SFR_IO_ADDR(IEC_INPUT), IEC_PIN_ATN
-        sbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA ; Data low if ATN is low
+        xcbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA ; Data low if ATN is low
         sbis    _SFR_IO_ADDR(IEC_INPUT), IEC_PIN_CLOCK
         rjmp    0b
 
@@ -304,7 +331,7 @@ jiffy_receive:
         delay_us 6, -1
 
         ;; Data low
-        sbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA ; 1
+        xcbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA ; 1
         delay_us 10             ; make sure the C64 can see that
 
         ;; Post-process data and store last bus state
@@ -320,8 +347,13 @@ jiffy_receive:
         ;; Needs 16 (or 18) cycles including the rcall
 jiffy_sendbits:
         in      r19, _SFR_IO_ADDR(IEC_OUTPUT) ; 1 - read port
+#ifdef IEC_OUTPUTS_INVERTED
         andi    r19, ~(IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
                                     ; 1 - mask IEC bits
+#else
+        ori     r19, (IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
+                                    ; 1 - release all IEC lines
+#endif
         bst     r0, 0               ; 1 - get bit 0
         bld     r19, IEC_OPIN_CLOCK ; 1 - send on the clock line
         bst     r0, 1               ; 1 - get bit 1
@@ -365,6 +397,7 @@ jiffy_send:
         tst     r22             ; EOI flag set?
         breq    0f              ; No, branch
 
+#ifdef IEC_OUTPUTS_INVERTED
         in      r22, _SFR_IO_ADDR(IEC_OUTPUT)
         andi    r22, ~(IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
         ori     r22, IEC_OBIT_DATA ; Data low, Clock hi on EOI
@@ -373,19 +406,31 @@ jiffy_send:
 0:      in      r22, _SFR_IO_ADDR(IEC_OUTPUT)
         andi    r22, ~(IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
         ori     r22, IEC_OBIT_CLOCK ; Data hi, Clock low on non-EOI
+#else
+        in      r22, _SFR_IO_ADDR(IEC_OUTPUT)
+        ori     r22, (IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
+        andi    r22, ~(IEC_OBIT_DATA) ; Data low, Clock hi on EOI
+        rjmp    1f
+
+0:      in      r22, _SFR_IO_ADDR(IEC_OUTPUT)
+        ori     r22, (IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
+        andi    r22, ~(IEC_OBIT_CLOCK) ; Data hi, Clock low on non-EOI
+#endif
 
 1:
         ;; Set clock and data high/inactive - FFB5
-        cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
+        xsbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
                 ; this is the actual ready signal for the C64
-        cbi     _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
+        xsbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
 
         ;; Wait 1us to allow the bus to settle (J1541 needs 4us here)
         delay_us 1
 
         ;; Set up a few registers
         mov     r0, r24         ; move data byte to r0
+#ifdef IEC_OUTPUTS_INVERTED
         com     r0              ; invert data byte
+#endif
 
         ;; Wait for start condition (calculated above) from C64 - FFB8
 0:      in      r24, _SFR_IO_ADDR(IEC_INPUT)

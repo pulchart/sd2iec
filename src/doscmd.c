@@ -100,7 +100,15 @@ struct fastloader_rxtx_s {
   fastloader_tx_t txfunc;
 };
 
-#ifdef CONFIG_HAVE_IEC
+/* The table is empty, and not allowed to be, if none of its loaders is enabled */
+#if defined(CONFIG_HAVE_IEC) && \
+    (defined(CONFIG_LOADER_GEOS) || defined(CONFIG_LOADER_FC3) || \
+     defined(CONFIG_LOADER_HYPRALOAD) || defined(CONFIG_LOADER_KRILL) || \
+     defined(CONFIG_LOADER_BITFIRE))
+#  define HAVE_RXTX_TABLE
+#endif
+
+#ifdef HAVE_RXTX_TABLE
 static const PROGMEM struct fastloader_rxtx_s fl_rxtx_table[] = {
 #ifdef CONFIG_LOADER_GEOS
   [RXTX_GEOS_1MHZ]     = { geos_get_byte_1mhz,     geos_send_byte_1mhz     },
@@ -134,7 +142,7 @@ static const PROGMEM struct fastloader_rxtx_s fl_rxtx_table[] = {
   [RXTX_BITFIRE_ICLK]  = { bitfire_get_byte_data_clk_inv, NULL             },
 #endif
 };
-#endif // CONFIG_HAVE_IEC
+#endif // HAVE_RXTX_TABLE
 
 struct fastloader_crc_s {
   uint16_t crc;
@@ -1578,7 +1586,7 @@ static void handle_memwrite(void) {
   if (loader != FL_NONE) {
     detected_loader = loader;
 
-#ifdef CONFIG_HAVE_IEC
+#ifdef HAVE_RXTX_TABLE
     uint8_t index;
 
     index = pgm_read_word(&crcptr->rxtx);
