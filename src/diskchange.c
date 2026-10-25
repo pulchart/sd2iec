@@ -274,7 +274,7 @@ static FRESULT write_short_name(FIL *fh, uint8_t *name, UINT *written) {
 static uint8_t create_changelist(path_t *path, uint8_t *filename) {
   FRESULT res;
   FILINFO finfo;
-  DIR dh;
+  DIRC dh;
   FIL fh;
   UINT byteswritten;
   uint8_t *name;
@@ -355,7 +355,7 @@ static void set_changelist_internal(path_t *path, uint8_t *filename, uint8_t at_
   globalflags &= (uint8_t)~AUTOSWAP_ACTIVE;
 
   /* Remove the old swaplist */
-  if (swaplist.fs != NULL) {
+  if (swaplist.obj.fs != NULL) {
     f_close(&swaplist);
     memset(&swaplist,0,sizeof(swaplist));
   }
@@ -364,13 +364,13 @@ static void set_changelist_internal(path_t *path, uint8_t *filename, uint8_t at_
     return;
 
   /* Open a new swaplist */
-  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  partition[path->part].fatfs.cdir = path->dir.fat;
   res = f_open(&partition[path->part].fatfs, &swaplist, filename, FA_READ | FA_OPEN_EXISTING);
   if (res != FR_OK) {
     parse_error(res,1);
     return;
   }
-  if (swaplist.fsize == 0) {
+  if (f_size(&swaplist) == 0) {
     f_close(&swaplist);
     memset(&swaplist,0,sizeof(swaplist));
     return;
@@ -395,7 +395,7 @@ void set_changelist(path_t *path, uint8_t *filename) {
 void change_disk(void) {
   path_t path;
 
-  if (swaplist.fs == NULL) {
+  if (swaplist.obj.fs == NULL) {
     DS_HOLD(1);
     /* No swaplist active, try using AUTOSWAP.LST */
     /* change_disk is called from the IEC idle loop, so ops_scratch is free */
@@ -407,7 +407,7 @@ void change_disk(void) {
     else
       set_changelist_internal(&path, ops_scratch, 0);
 
-    if (swaplist.fs == NULL) {
+    if (swaplist.obj.fs == NULL) {
       /* No swap list found, create one if key was "home" */
       if (key_pressed(KEY_HOME)) {
         uint8_t swapname[16]; // FIXME: magic constant

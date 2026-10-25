@@ -1367,11 +1367,11 @@ static void parse_getpartition(void) {
 
   if (partition[part].fop == &d64ops) {
     /* return the size of the disk image, rounded up */
-    size = (partition[part].imagehandle.fsize + 511) / 512;
+    size = (f_size(&partition[part].imagehandle) + 511) / 512;
 
   } else {
     /* return the size of the FAT partition */
-    size = (partition[part].fatfs.max_clust - 1) * partition[part].fatfs.csize;
+    size = (partition[part].fatfs.n_fatent - 1) * partition[part].fatfs.csize;
   }
 
   if (size > 0xffffff)
@@ -1432,17 +1432,17 @@ static void handle_memread(void) {
 
   if (address >= 0x8000 && rom_filename[0] != 0) {
     /* Try to use the rom file as data source - look in the current dir first */
-    partition[current_part].fatfs.curr_dir = partition[current_part].current_dir.fat;
+    partition[current_part].fatfs.cdir = partition[current_part].current_dir.fat;
     res = f_open(&partition[current_part].fatfs, &romfile, rom_filename, FA_READ | FA_OPEN_EXISTING);
 
     if (res != FR_OK) {
       /* Not successful, try root dir */
-      partition[current_part].fatfs.curr_dir = 0;
+      partition[current_part].fatfs.cdir = 0;
       res = f_open(&partition[current_part].fatfs, &romfile, rom_filename, FA_READ | FA_OPEN_EXISTING);
 
       if (res != FR_OK) {
         /* Not successful, try root of drive 0 */
-        partition[0].fatfs.curr_dir = 0;
+        partition[0].fatfs.cdir = 0;
         res = f_open(&partition[0].fatfs, &romfile, rom_filename, FA_READ | FA_OPEN_EXISTING);
 
         if (res != FR_OK)
@@ -1453,13 +1453,13 @@ static void handle_memread(void) {
 
     /* One of the f_open calls was successful */
     address -= 0x8000;
-    if (romfile.fsize < 32*1024U)
+    if (f_size(&romfile) < 32*1024U)
       /* Allow 16K 1541 roms */
       address &= 0x3fff;
 
-    if ((romfile.fsize & 0x3fff) != 0)
+    if ((f_size(&romfile) & 0x3fff) != 0)
       /* Skip header bytes */
-      address += romfile.fsize & 0x3fff;
+      address += f_size(&romfile) & 0x3fff;
 
     res = f_lseek(&romfile, address);
     if (res != FR_OK)

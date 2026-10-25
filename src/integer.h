@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 /* These types are assumed as 16-bit or larger integer */
-typedef int16_t  INT;
-typedef uint16_t UINT;
+typedef int      INT;
+typedef unsigned int UINT;
 
 /* These types are assumed as 8-bit integer */
 typedef int8_t  CHAR;

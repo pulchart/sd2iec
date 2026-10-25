@@ -1356,7 +1356,7 @@ static uint8_t errorcache_commit(void) {
 uint8_t d64_mount(path_t *path, uint8_t *name) {
   uint8_t imagetype;
   uint8_t part = path->part;
-  uint32_t fsize = partition[part].imagehandle.fsize;
+  uint32_t fsize = f_size(&partition[part].imagehandle);
 
   switch (fsize) {
   case D71_SIZE:

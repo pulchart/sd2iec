@@ -75,6 +75,9 @@ DSTATUS disk_status (BYTE);
 DRESULT disk_read (BYTE, BYTE*, DWORD, BYTE);
 DRESULT disk_write (BYTE, const BYTE*, DWORD, BYTE);
 #define disk_ioctl(a,b,c) RES_OK
+
+/* Command codes for disk_ioctl, only CTRL_SYNC is used by FatFs here */
+#define CTRL_SYNC            0
 DRESULT disk_getinfo(BYTE drv, BYTE page, void *buffer);
 
 void disk_init(void);

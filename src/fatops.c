@@ -90,7 +90,6 @@ void parse_error(FRESULT res, uint8_t readflag) {
     break;
 
   case FR_NO_PATH:
-  case FR_NOT_DIRECTORY:
     set_error_ts(ERROR_FILE_NOT_FOUND_39,res,0);
     break;
 
@@ -689,7 +688,7 @@ static uint8_t fat_file_read(buffer_t *buf) {
   if(buf->recordlen) // strip nulls from end of REL record.
     while(!buf->data[buf->lastused] && --(buf->lastused) > 1);
   if (bytesread < 254
-      || (buf->pvt.fat.fh.fsize - buf->pvt.fat.fh.fptr) == 0
+      || (f_size(&buf->pvt.fat.fh) - buf->pvt.fat.fh.fptr) == 0
       || buf->recordlen
      )
     buf->sendeoi = 1;
@@ -758,7 +757,7 @@ static uint8_t fat_file_write(buffer_t *buf) {
   uint32_t fptr;
   uint32_t i = 0;
 
-  fptr = buf->pvt.fat.fh.fsize - buf->pvt.fat.headersize;
+  fptr = f_size(&buf->pvt.fat.fh) - buf->pvt.fat.headersize;
 
   // on a REL file, the fptr will be be at the end of the record we just read.  Reposition.
   if (buf->fptr != fptr) {
@@ -799,7 +798,7 @@ static uint8_t fat_file_write(buffer_t *buf) {
       if(write_data(buf))
         return 1;
     }
-    res = f_lseek(&buf->pvt.fat.fh, buf->pvt.fat.fh.fsize);
+    res = f_lseek(&buf->pvt.fat.fh, f_size(&buf->pvt.fat.fh));
     if (res != FR_OK) {
       uart_putc('r');
       parse_error(res,1);
@@ -831,7 +830,7 @@ uint8_t fat_file_seek(buffer_t *buf, uint32_t position, uint8_t index) {
     if (fat_file_write(buf))
       return 1;
 
-  if (buf->pvt.fat.fh.fsize >= pos) {
+  if (f_size(&buf->pvt.fat.fh) >= pos) {
     FRESULT res = f_lseek(&buf->pvt.fat.fh, pos);
     if (res != FR_OK) {
       parse_error(res,1);
@@ -940,7 +939,7 @@ void fat_open_read(path_t *path, cbmdirent_t *dent, buffer_t *buf, uint8_t modif
   else
     mode = FA_READ | FA_WRITE | FA_OPEN_ALWAYS;
 
-  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  partition[path->part].fatfs.cdir = path->dir.fat;
 
   while (1) {
     res = f_open(&partition[path->part].fatfs,&buf->pvt.fat.fh, name, mode);
@@ -1015,7 +1014,7 @@ FRESULT create_file(path_t *path, cbmdirent_t *dent, uint8_t type, buffer_t *buf
 #endif
   }
 
-  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  partition[path->part].fatfs.cdir = path->dir.fat;
 
   res = f_open(&partition[path->part].fatfs, &buf->pvt.fat.fh,
                name, FA_WRITE | FA_CREATE_NEW | (recordlen ? FA_READ : 0));
@@ -1077,14 +1076,14 @@ void fat_open_write(path_t *path, cbmdirent_t *dent, uint8_t type, buffer_t *buf
   FRESULT res;
 
   if (append) {
-    partition[path->part].fatfs.curr_dir = path->dir.fat;
+    partition[path->part].fatfs.cdir = path->dir.fat;
     res = f_open(&partition[path->part].fatfs, &buf->pvt.fat.fh, dent->pvt.fat.realname, FA_WRITE | FA_OPEN_EXISTING);
     if (dent->opstype == OPSTYPE_FAT_X00)
       /* It's a [PSUR]00 file */
       buf->pvt.fat.headersize = P00_HEADER_SIZE;
     if (res == FR_OK)
-      res = f_lseek(&buf->pvt.fat.fh, buf->pvt.fat.fh.fsize);
-    buf->fptr = buf->pvt.fat.fh.fsize - buf->pvt.fat.headersize;
+      res = f_lseek(&buf->pvt.fat.fh, f_size(&buf->pvt.fat.fh));
+    buf->fptr = f_size(&buf->pvt.fat.fh) - buf->pvt.fat.headersize;
   } else
     res = create_file(path, dent, type, buf, 0);
 
@@ -1125,7 +1124,7 @@ void fat_open_rel(path_t *path, cbmdirent_t *dent, buffer_t *buf, uint8_t length
     bytesread = 1;
     ops_scratch[0] = length;
   } else {
-    partition[path->part].fatfs.curr_dir = path->dir.fat;
+    partition[path->part].fatfs.cdir = path->dir.fat;
     res = f_open(&partition[path->part].fatfs, &buf->pvt.fat.fh, dent->pvt.fat.realname, FA_WRITE | FA_READ | FA_OPEN_EXISTING);
     if (res == FR_OK) {
       if (dent->opstype == OPSTYPE_FAT_X00) {
@@ -1200,8 +1199,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
       parse_error(res,1);
       return 1;
     }
-  } while ((finfo.fname[0] && (finfo.fattrib & AM_VOL)) ||
-           (finfo.fname[0] == '.' && finfo.fname[1] == 0) ||
+  } while ((finfo.fname[0] == '.' && finfo.fname[1] == 0) ||
            (finfo.fname[0] == '.' && finfo.fname[1] == '.' && finfo.fname[2] == 0));
 
   memset(dent, 0, sizeof(cbmdirent_t));
@@ -1430,7 +1428,7 @@ uint8_t fat_delete(path_t *path, cbmdirent_t *dent) {
     name = dent->name;
     pet2asc(name);
   }
-  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  partition[path->part].fatfs.cdir = path->dir.fat;
   res = f_unlink(&partition[path->part].fatfs, name);
 
   update_leds();
@@ -1447,7 +1445,7 @@ uint8_t fat_delete(path_t *path, cbmdirent_t *dent) {
 #ifdef CONFIG_LCD_DISPLAY
 /* Show the long file name of a mounted image, the 8.3 name if there is none */
 static void fat_show_image(path_t *path, cbmdirent_t *dent) {
-  DIR dh;
+  DIRC dh;
   FILINFO finfo;
 
   finfo.lfn = ops_scratch;
@@ -1487,27 +1485,23 @@ static void fat_show_image(path_t *path, cbmdirent_t *dent) {
 uint8_t fat_chdir(path_t *path, cbmdirent_t *dent) {
   FRESULT res;
 
-  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  partition[path->part].fatfs.cdir = path->dir.fat;
 
   /* A NULL dirent (left arrow) moves one directory up */
   if (dent == NULL) {
-    FILINFO finfo;
+    DWORD parent;
 
     /* going up in the root dir is a no-op */
     if (path->dir.fat == 0)
       return 0;
 
-    ops_scratch[0] = '.';
-    ops_scratch[1] = '.';
-    ops_scratch[2] = 0;
-
-    res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
+    res = l_parent(&partition[path->part].fatfs, path->dir.fat, &parent);
     if (res != FR_OK) {
       parse_error(res,1);
       return 1;
     }
 
-    path->dir.fat = finfo.clust;
+    path->dir.fat = parent;
     return 0;
   }
 
@@ -1564,7 +1558,7 @@ uint8_t fat_chdir(path_t *path, cbmdirent_t *dent) {
 void fat_mkdir(path_t *path, uint8_t *dirname) {
   FRESULT res;
 
-  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  partition[path->part].fatfs.cdir = path->dir.fat;
 #ifdef CONFIG_XE5
   if (file_extension_mode == 5) {
     uint8_t len = encode_xe5(dirname);
@@ -1591,37 +1585,16 @@ void fat_mkdir(path_t *path, uint8_t *dirname) {
  * in label. Returns 0 if successfull, != 0 if an error occured.
  */
 static uint8_t fat_getvolumename(uint8_t part, uint8_t *label) {
-  DIR dh;
-  FILINFO finfo;
   FRESULT res;
-  uint8_t i,j;
 
-  finfo.lfn = NULL;
   memset(label, 0, CBM_NAME_LENGTH+1);
 
-  res = l_opendir(&partition[part].fatfs, 0, &dh);
-
+  res = l_getlabel(&partition[part].fatfs, label);
   if (res != FR_OK) {
     parse_error(res,1);
     return 1;
   }
 
-  while ((res = f_readdir(&dh, &finfo)) == FR_OK) {
-    if (!finfo.fname[0]) break;
-    if ((finfo.fattrib & (AM_VOL|AM_SYS|AM_HID)) == AM_VOL) {
-      i=0;
-      j=0;
-      while (finfo.fname[i]) {
-        /* Skip dots */
-        if (finfo.fname[i] == '.') {
-          i++;
-          continue;
-        }
-        label[j++] = finfo.fname[i++];
-      }
-      return 0;
-    }
-  }
   return 0;
 }
 
@@ -1636,7 +1609,7 @@ static uint8_t fat_getvolumename(uint8_t part, uint8_t *label) {
  * Returns 0 if successfull, != 0 if an error occured.
  */
 uint8_t fat_getdirlabel(path_t *path, uint8_t *label) {
-  DIR dh;
+  DIRC dh;
   FILINFO finfo;
   FRESULT res;
   uint8_t *name = ops_scratch;
@@ -1740,7 +1713,7 @@ uint16_t fat_freeblocks(uint8_t part) {
   FATFS *fs = &partition[part].fatfs;
   DWORD clusters;
 
-  if (l_getfree(fs, NULLSTRING, &clusters, 65535) == FR_OK) {
+  if (l_getfree(fs, &clusters, 65535) == FR_OK) {
     if (clusters > 65535)
       return 65535;
     else
@@ -1858,7 +1831,7 @@ void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
   exttype_t exttype;
   uint8_t newlen;
 
-  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  partition[path->part].fatfs.cdir = path->dir.fat;
 
   if (dent->opstype == OPSTYPE_FAT_X00) {
     uint8_t *x00ext;
@@ -2259,7 +2232,7 @@ static uint8_t check_free(uint8_t part, uint32_t need) {
 
   need = need / (512 * partition[part].fatfs.csize) + 1;
 
-  res = l_getfree(&partition[part].fatfs, NULLSTRING, &have, need);
+  res = l_getfree(&partition[part].fatfs, &have, need);
   if (res != FR_OK) {
     parse_error(res,0);
     return 2;
@@ -2313,7 +2286,7 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
 #endif
   }
 
-  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  partition[path->part].fatfs.cdir = path->dir.fat;
   /* ops_scratch contains the filename for the image */
 #ifdef CONFIG_XE5
   if (file_extension_mode == 5) {
@@ -2455,7 +2428,7 @@ static void fat_set_attrib(path_t *path, cbmdirent_t *dent, uint8_t mask, uint8_
     name = dent->name;
     pet2asc(name);
   }
-  partition[path->part].fatfs.curr_dir = path->dir.fat;
+  partition[path->part].fatfs.cdir = path->dir.fat;
   res = f_chmod(&partition[path->part].fatfs, name, fattr, fmask);
 
   update_leds();

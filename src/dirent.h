@@ -224,7 +224,7 @@ typedef struct d64fh {
 typedef struct dh_s {
   uint8_t part;
   union {
-    DIR          fat;
+    DIRC         fat;
     uint16_t     m2i;
     struct d64dh d64;
     eefs_dir_t   eefs;
