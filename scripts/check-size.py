@@ -14,14 +14,12 @@ import sys
 # flash_margin: minimum free flash in bytes (BINARY_LENGTH - Program)
 # ram_free: minimum free RAM in bytes (RAM size - RAM use), the room left for the stack
 LIMITS = {
-    "atmega644p":  {"flash_margin": 128, "ram_free": 688},
     "atmega1284p": {"flash_margin": 128, "ram_free": 896},
     "atmega1281":  {"flash_margin": 128, "ram_free": 1248},
 }
 
 # internal RAM size in bytes
 RAM_SIZE = {
-    "atmega644p": 4096,
     "atmega1284p": 16384,
     "atmega1281": 8192,
 }

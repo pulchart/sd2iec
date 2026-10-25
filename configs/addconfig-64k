@@ -1,38 +1,11 @@
 # This is not actually a -*- makefile -*- but it looks nicer
 # if it uses the same syntax-highlighting ;)
 #
-# configuration addon for ATmega644P (64 KB flash) with a few features
-# disabled, use it after a larsp, sw1 or sw2 config:
-#   make CONFIG="configs/config-larsp-oled configs/addconfig-64k"
-# the objects go to obj-m644p-<config>-mini
+# configuration addon for atmega644 chips with a few features disabled
 
 CONFIG_MCU=atmega644p
-NAME_OVERRIDE=mini
 CONFIG_REMOTE_DISPLAY=n
 CONFIG_M2I=n
-CONFIG_XE5=n
 CONFIG_P00CACHE=n
+NAME_OVERRIDE=mini
 CONFIG_HAVE_EEPROMFS=n
-
-# fastloaders, only Epyx FastLoad and GEOS stay
-CONFIG_LOADER_MMZAK=n
-CONFIG_LOADER_N0SDOS=n
-CONFIG_LOADER_SAMSJOURNEY=n
-CONFIG_LOADER_ULTRABOOT=n
-CONFIG_LOADER_HYPRALOAD=n
-CONFIG_LOADER_KRILL=n
-CONFIG_LOADER_BOOZE=n
-CONFIG_LOADER_SPINDLE=n
-CONFIG_LOADER_BITFIRE=n
-CONFIG_LOADER_SPARKLE=n
-CONFIG_LOADER_TURBODISK=n
-CONFIG_LOADER_FC3=n
-CONFIG_LOADER_DREAMLOAD=n
-CONFIG_LOADER_ULOAD3=n
-CONFIG_LOADER_GIJOE=n
-CONFIG_LOADER_WHEELS=n
-CONFIG_LOADER_NIPPON=n
-CONFIG_LOADER_AR6=n
-CONFIG_LOADER_ELOAD1=n
-CONFIG_LOADER_EPYXCART=y
-CONFIG_LOADER_GEOS=y

@@ -391,7 +391,7 @@ Supported commands:
                3: Use SEQ/USR/REL file extensions, no x00 header
                4: Same as 3, but also for PRG
                5: Same as 4, but characters FAT can't store are escaped
-                  (only in builds with CONFIG_XE5, not in the mini builds)
+                  (only in builds with CONFIG_XE5)
              If you set mode 3, 4 or 5, extension hiding is automatically
              enabled. This setting can be saved in the EEPROM using XW, the
              default value is 1.

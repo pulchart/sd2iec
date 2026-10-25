@@ -13,8 +13,7 @@ LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, wi
 
 - Support for WS0010 OLED displays: configs `larsp-oled` (MMC2IEC) and `evo2-oled` (evo2) for a module such as the Winstar WEH001602A, dimming after inactivity
 - Scrolling of names longer than the display, the long file name of a mounted image
-- Mini builds for the ATmega644P (64 KB), see Builds
-- Extension mode 5 (`XE5`): any PETSCII name on FAT, written as `{HH}` escapes where FAT cannot store a character. File names with more than one dot (not in mini builds)
+- Extension mode 5 (`XE5`): any PETSCII name on FAT, written as `{HH}` escapes where FAT cannot store a character. File names with more than one dot
 - Commands `A:`, `L`/`EL`/`EU`, `EH`, `R-H` and `D:` for attributes, locking and hiding of files and the header, `EL:$` locks a whole disk image
 - `XN+`/`XN-` fast format, `XET+`/`XET-` strict file type check, `XEL`/`XEU` lock of the extension settings, `XH+`/`XH-` hidden files in images
 - Partition listing filtered by image type, `$=P:*=N`
@@ -64,7 +63,7 @@ FAT has no file type and does not take every C64 name. `XEn` selects how a file 
 | 2 | every type as x00, PRG as `NAME.P00` |
 | 3 | SEQ, USR and REL as `NAME.SEQ`, `NAME.USR`, `NAME.REL`, PRG plain |
 | 4 | like 3, PRG as `NAME.PRG` |
-| 5 | like 4, characters FAT cannot hold are escaped, not in mini builds |
+| 5 | like 4, characters FAT cannot hold are escaped |
 
 An x00 file keeps the type and the C64 name in a header. With `XE+` the directory takes the type from a `.SEQ`, `.USR`, `.REL` or `.PRG` extension and hides it, modes 3 to 5 turn `XE+` on. Without it every file with another extension, or without one, lists as PRG.
 
@@ -88,18 +87,7 @@ Hold NEXT while powering on to skip the settings saved in the EEPROM. The firmwa
 
 ## Builds
 
-Full builds are for the ATmega1284P (128 KB flash), `uIEC` and `uIEC3` for the ATmega1281. Mini builds (`-mini` in the file name, `m644p`) are for boards with an ATmega644P (64 KB) and exist for `larsp`, `larsp-lcd`, `larsp-oled`, `sw1` and `sw2`. They are made with `configs/addconfig-64k`.
-
-| Feature | Full (1284P, 1281) | Mini (644P) |
-|---|---|---|
-| LCD and OLED display (`larsp-lcd`, `larsp-oled`) | on | on |
-| Epyx FastLoad, GEOS | on | on |
-| Other fastloaders: Turbodisk, Final Cartridge III, Action Replay 6, Dreamload, ULoad 3, G.I. Joe, Wheels, ELoad 1, Nippon, Maniac Mansion, Zak McKracken, N0stalgia loaders, Sam's Journey, Ultraboot, Hypra-Load, Krill, Bitfire, Booze, Sparkle, Spindle | on | off |
-| M2I images | on | off |
-| Cache of `[PSUR]00` names | on | off |
-| Extension mode 5 (`XE5`) | on | off |
-| EEPROM file system | on | off |
-| I2C remote display | on (`larsp`, `sw2`) | off |
+The builds are for the ATmega1284P (128 KB flash), `uIEC` and `uIEC3` for the ATmega1281.
 
 The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. Of the fastloaders only JiffyDOS is built, the other routines do not support the non-inverted IEC output lines of these boards. D80 and D82 images (8050 and 8250) are supported by these two builds only.
 
@@ -148,8 +136,6 @@ avrdude -c usbasp -P usb -p m1284p \
 2. Copy the `.bin` to the root of the SD card and power on. The file name does not matter. Builds of this fork are development versions, the bootloader flashes them whenever the file differs from the chip.
 3. Updates: copy the new `.bin` to the card.
 
-For the ATmega644P use `-p m644p`, the `m644p` bootloader hex and a `-mini` file. The fuse values here are for the ATmega1284P.
-
 To write the firmware with the programmer and keep the bootloader, add `-D`:
 
 ```
@@ -171,11 +157,7 @@ The binary is `obj-m1284p-larsp-oled/sd2iec.bin`. All configs, into `dist/` as `
 make dist
 ```
 
-`DISTCONFIGS="larsp-lcd evo2-lcd"` builds only some configs, `DISTMINI` the mini builds. One mini build:
-
-```
-make CONFIG="configs/config-larsp-oled configs/addconfig-64k"
-```
+`DISTCONFIGS="larsp-lcd evo2-lcd"` builds only some configs.
 
 `make check-size` builds everything and fails when a build outgrows flash or leaves too little RAM for the stack. Limits: `scripts/check-size.py`.
 
