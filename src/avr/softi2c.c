@@ -32,14 +32,21 @@
 #define SOFTI2C_SDA _BV(SOFTI2C_BIT_SDA)
 #define SOFTI2C_SCL _BV(SOFTI2C_BIT_SCL)
 
+/* Longest wait for SCL to be released, in steps of 10 us */
+#define SOFTI2C_SCL_TIMEOUT 10000
+
 static uint8_t i2c_ready = 0;
 
 static void set_scl(uint8_t x) {
   if (x) {
     SOFTI2C_DDR  &= (uint8_t)~SOFTI2C_SCL;
     SOFTI2C_PORT |= SOFTI2C_SCL;
-    // Clock stretching
-    loop_until_bit_is_set(SOFTI2C_PIN, SOFTI2C_BIT_SCL);
+    /* Clock stretching, but a slave that holds SCL forever must not hang the boot */
+    uint16_t timeout = SOFTI2C_SCL_TIMEOUT;
+    while (bit_is_clear(SOFTI2C_PIN, SOFTI2C_BIT_SCL) && timeout) {
+      _delay_us(10);
+      timeout--;
+    }
   } else {
     SOFTI2C_DDR  |= SOFTI2C_SCL;
     SOFTI2C_PORT &= (uint8_t)~SOFTI2C_SCL;

@@ -119,8 +119,12 @@ void read_configuration(void) {
                             EXTENSION_HIDING);
   globalflags |= tmp;
 
-  if (eeprom_read_byte(&storedconfig.hardaddress) == device_hw_address())
-    device_address = eeprom_read_byte(&storedconfig.address);
+  if (eeprom_read_byte(&storedconfig.hardaddress) == device_hw_address()) {
+    tmp = eeprom_read_byte(&storedconfig.address);
+    /* Ignore an address outside the valid CBM range */
+    if (tmp >= 4 && tmp <= 30)
+      device_address = tmp;
+  }
 
   file_extension_mode = eeprom_read_byte(&storedconfig.fileexts);
 
