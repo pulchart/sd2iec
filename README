@@ -533,6 +533,10 @@ Supported commands:
 
   - XCnum    Set the LCD contrast, num is 0 to 63. ST7036 displays only.
 
+  - XOnum    Set the time in seconds until a WS0010 OLED dims, num is 1 to
+             254. 0 keeps the display off, 255 never dims. The default is
+             45. This value can be saved in the EEPROM using XW.
+
   - X?       Extended version query
              This commands returns the extended version string which
              consists of the version, the processor type set at build time

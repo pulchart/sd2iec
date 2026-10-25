@@ -57,6 +57,9 @@ void lcd_hold(uint8_t on);
 void lcd_show_name(uint8_t line, char tag, const char *name);
 void lcd_scroll_poll(void);
 uint8_t lcd_xcommand(uint8_t *cmd);
+#ifdef CONFIG_LCD_WS0010
+extern uint8_t oled_dim_time;
+#endif
 
 #else /* CONFIG_LCD_DISPLAY */
 

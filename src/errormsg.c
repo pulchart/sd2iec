@@ -223,6 +223,12 @@ void set_error_ts(uint8_t errornum, uint8_t track, uint8_t sector) {
       *msg++ = 'H';
       msg = appendbool(msg, 0, globalflags & D64_WITH_HIDDEN);
 
+#ifdef CONFIG_LCD_WS0010
+      *msg++ = 'O';
+      msg = appendnumber(msg, oled_dim_time);
+      *msg++ = ':';
+#endif
+
       *msg++ = 'R';
       ustrcpy(msg, rom_filename);
       msg += ustrlen(rom_filename);

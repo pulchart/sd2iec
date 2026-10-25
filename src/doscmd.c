@@ -2390,6 +2390,9 @@ static void parse_xcommand(void) {
 
 #ifdef CONFIG_LCD_DISPLAY
   case 'T': case 'A': case 'G': case 'X': case 'C':
+#ifdef CONFIG_LCD_WS0010
+  case 'O':
+#endif
     if (lcd_xcommand(command_buffer))
       set_error(ERROR_SYNTAX_UNABLE);
     break;

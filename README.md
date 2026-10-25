@@ -28,7 +28,7 @@ Line 1 shows the directory or the mounted image, line 2 the loaded or saved file
 |---|---|---|
 | Configs | `larsp-lcd`, `evo2-lcd` | `larsp-oled`, `evo2-oled` |
 | Scroll step | 700 ms | 300 ms |
-| Dimming | no | after 45 seconds without a change |
+| Dimming | no | after 45 seconds without a change, `XOn` sets the time |
 
 A dimmed OLED lights up on a change of content. The first press of Next, Prev or Home only wakes it, the next press acts. Pins: `doc/lcd-pinout.txt`.
 
@@ -49,6 +49,7 @@ Send X commands on the command channel, for example `OPEN15,8,15,"XE5":CLOSE15`,
 | `XH+` / `XH-` | honor the hidden flag of files in images | off |
 | `X*+` / `X*-` | 1581 style `*` matching | on |
 | `XDdrv=val` | drive slots, only in the `uIEC` build (SD and ATA) | board default |
+| `XOn` | seconds until the OLED dims, 1 to 254, 0 always off, 255 always on, OLED builds only | 45 |
 | `XR:name` | file for M-R emulation | none |
 | `U0>` + address | device address, used only while the hardware address of the board is the same as when it was saved | board address |
 
@@ -194,6 +195,7 @@ Sent on the command channel, for example `@"XT1HELLO"` with JiffyDOS (the quotes
 | `XA` | show the version and the author of the LCD code |
 | `XG` | show the credits |
 | `XCnn` | set the contrast 0 to 63, ST7036 only |
+| `XOn` | OLED only: seconds until the display dims, 1 to 254, 0 always off, 255 always on. Saved with `XW` |
 
 ## Credits
 

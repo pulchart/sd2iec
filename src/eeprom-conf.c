@@ -35,6 +35,9 @@
 #include "ustring.h"
 #include "uart.h"
 #include "eeprom-conf.h"
+#ifdef CONFIG_LCD_WS0010
+#  include "display_lcd.h"
+#endif
 #ifdef CONFIG_ONBOARD_DISPLAY
 #  include "lcd-onboard.h"
 #  include "menu.h"
@@ -59,6 +62,7 @@ uint8_t rom_filename[ROM_NAME_LENGTH+1];
  * @active_bus : IEC or IEEE488
  * @menu_system_enabled : the buttons control the menu or set the device address
  * @lcd_contrast, @lcd_brightness : settings of the on-board display
+ * @oled_dim   : seconds until the OLED dims, 0 always off, 255 always on
  *
  * This is the data structure for the contents of the EEPROM.
  *
@@ -83,6 +87,9 @@ static EEMEM struct {
   uint8_t  menu_system_enabled;
   uint8_t  lcd_contrast;
   uint8_t  lcd_brightness;
+#endif
+#ifdef CONFIG_LCD_WS0010
+  uint8_t  oled_dim;
 #endif
 } __attribute__((packed)) storedconfig;
 
@@ -243,6 +250,11 @@ void read_configuration(void) {
   }
 #endif
 
+#ifdef CONFIG_LCD_WS0010
+  if (size > 30)
+    oled_dim_time = eeprom_read_byte(&storedconfig.oled_dim);
+#endif
+
   /* Prevent problems due to accidental writes */
   eeprom_safety();
 
@@ -283,6 +295,9 @@ void write_configuration(void) {
   eeprom_write_byte(&storedconfig.menu_system_enabled, menu_system_enabled);
   eeprom_write_byte(&storedconfig.lcd_contrast, lcd_contrast);
   eeprom_write_byte(&storedconfig.lcd_brightness, lcd_brightness);
+#endif
+#ifdef CONFIG_LCD_WS0010
+  eeprom_write_byte(&storedconfig.oled_dim, oled_dim_time);
 #endif
 
   /* Calculate checksum over EEPROM contents */

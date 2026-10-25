@@ -35,7 +35,8 @@ static uint8_t lcdcontrast;  // andi6510: LCD contrast setting
 static uint8_t hold;
 
 #ifdef CONFIG_LCD_WS0010
-#define DIM_AFTER MS_TO_TICKS(45000)
+/* Seconds without a change until the display dims, 0 always off, 255 always on */
+uint8_t oled_dim_time = 45;
 
 static tick_t  dim_last;
 static uint8_t dimmed;
@@ -44,7 +45,7 @@ static uint8_t dimmed;
 static void lcd_activity(void)
 {
 	dim_last = getticks();
-	if (dimmed) {
+	if (dimmed && oled_dim_time) {
 		dimmed = 0;
 		lcd_command(LCD_DISP_ON);
 	}
@@ -53,7 +54,7 @@ static void lcd_activity(void)
 /* Returns 1 if the display was dimmed and is lit again, the key is consumed */
 uint8_t lcd_wake(void)
 {
-	if (!dimmed)
+	if (!dimmed || !oled_dim_time)
 		return 0;
 	lcd_activity();
 	return 1;
@@ -276,7 +277,9 @@ void lcd_scroll_poll(void)
 #ifdef CONFIG_LCD_WS0010
 	if (dimmed || lcd_controller_type() == 0)
 		return;
-	if (time_after(getticks(), dim_last + DIM_AFTER)) {
+	if (oled_dim_time != 255 &&
+	    (!oled_dim_time ||
+	     time_after(getticks(), dim_last + (tick_t)oled_dim_time * MS_TO_TICKS(1000)))) {
 		dimmed = 1;
 		lcd_command(LCD_DISP_OFF);
 		return;
@@ -401,6 +404,24 @@ uint8_t lcd_xcommand(uint8_t *cmd)
 	case 'X':
 		lcd_eee();
 		break;
+
+#ifdef CONFIG_LCD_WS0010
+	case 'O':
+		str = cmd + 2;
+		if (*str < '0' || *str > '9')
+			return 1;
+		num = parse_number(&str);
+		if (num > 255)
+			return 1;
+		oled_dim_time = num;
+		if (!num && lcd_controller_type() != 0) {
+			dimmed = 1;
+			lcd_command(LCD_DISP_OFF);
+		} else {
+			lcd_activity();
+		}
+		break;
+#endif
 
 	case 'C':
 		str = cmd + 2;
