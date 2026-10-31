@@ -1209,7 +1209,6 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   uint8_t typechar;
 #ifdef CONFIG_XE5
   uint8_t rawtype = 0;
-  bool hidden;
 #endif
 
   finfo.lfn = ops_scratch;
@@ -1246,10 +1245,6 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   }
 
 #ifdef CONFIG_XE5
-  /* A name that starts with an escape is not hidden */
-  hidden = *nameptr == '.';
-
-
   if (file_extension_mode == 5) {
     /* Find the type extension before the decoding drops a trailing "{}" */
     uint8_t len = ustrlen(nameptr);
@@ -1275,13 +1270,6 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   /* File type */
   if (finfo.fattrib & AM_DIR) {
     dent->typeflags = TYPE_DIR;
-    /* Hide directories starting with . */
-#ifdef CONFIG_XE5
-    if (hidden)
-#else
-    if (*nameptr == '.')
-#endif
-      dent->typeflags |= FLAG_HIDDEN;
 
   } else {
     /* Search for the file extension */
