@@ -94,7 +94,7 @@ The builds are for the ATmega1284P (128 KB flash), `uIEC` and `uIEC3` for the AT
 
 The `uIEC` build mounts 15 partitions at most, the other builds keep the number of their config.
 
-The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. Of the fastloaders only JiffyDOS is built, the other routines do not support the non-inverted IEC output lines of these boards.
+The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. All fastloaders are built except the burst and parallel ones, which need an SRQ interrupt and a parallel port these boards do not have. A long key press leaves a running loader.
 
 ## Programming
 
