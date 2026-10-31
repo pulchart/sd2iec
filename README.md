@@ -17,10 +17,11 @@ LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, wi
 - Commands `A:`, `L`/`EL`/`EU`, `EH`, `R-H` and `D:` for attributes, locking and hiding of files and the header, `EL:$` locks a whole disk image
 - `XN+`/`XN-` fast format, `XET+`/`XET-` strict file type check, `XEL`/`XEU` lock of the extension settings, `XH+`/`XH-` hidden files in images
 - Partition listing filtered by image type, `$=P:*=N`
-- `N:name.dnp,nnn` creates a DNP image with nnn tracks
+- `N:name.dnp,nnn` creates a DNP image (CMD native partition with subdirectories) with nnn tracks, 001 to 255
 - Fixes for `COPY` errors, REL record length 13, locked files in images, read-only images, DOS device names, names ending in shifted spaces, one-letter DNP directories and error codes
 - Boards `petSD+` and `cbmSD-mini` (configs `petSD+` and `cbmSDmini`) with an on-board display and menu, the bus (IEC or IEEE-488) is selected at runtime
 - D80 and D82 disk images (8050 and 8250) in all builds
+- Fastloaders on `petSD+` and `cbmSD-mini`, and the loaders of Another World and Wings of Fury (needs a 1541 ROM image set with `XR`)
 
 ## Display
 
