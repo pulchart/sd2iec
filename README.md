@@ -19,7 +19,8 @@ LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, wi
 - Partition listing filtered by image type, `$=P:*=N`
 - `N:name.dnp,nnn` creates a DNP image with nnn tracks
 - Fixes for `COPY` errors, REL record length 13, locked files in images, read-only images, DOS device names, names ending in shifted spaces, one-letter DNP directories and error codes
-- Boards `petSD+` and `cbmSD-mini` (configs `petSD+` and `cbmSDmini`) with an on-board display and menu, the bus (IEC or IEEE-488) is selected at runtime, and D80 and D82 disk images
+- Boards `petSD+` and `cbmSD-mini` (configs `petSD+` and `cbmSDmini`) with an on-board display and menu, the bus (IEC or IEEE-488) is selected at runtime
+- D80 and D82 disk images (8050 and 8250) in all builds
 
 ## Display
 
@@ -93,7 +94,7 @@ The builds are for the ATmega1284P (128 KB flash), `uIEC` and `uIEC3` for the AT
 
 The `uIEC` build mounts 15 partitions at most, the other builds keep the number of their config.
 
-The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. Of the fastloaders only JiffyDOS is built, the other routines do not support the non-inverted IEC output lines of these boards. D80 and D82 images (8050 and 8250) are supported by these two builds only.
+The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. Of the fastloaders only JiffyDOS is built, the other routines do not support the non-inverted IEC output lines of these boards.
 
 ## Programming
 
