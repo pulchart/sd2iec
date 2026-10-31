@@ -1925,6 +1925,8 @@ static uint8_t d64_chdir(path_t *path, cbmdirent_t *dirname) {
 static void d64_mkdir(path_t *path, uint8_t *dirname) {
   dh_t dh;
   buffer_t *buf;
+  cbmdirent_t dent;
+  int8_t res;
   uint8_t h_track,h_sector,d_track,d_sector;
   uint8_t *ptr, *name;
 
@@ -1935,6 +1937,26 @@ static void d64_mkdir(path_t *path, uint8_t *dirname) {
 
   if (d64_locked(path->part))
     return;
+
+  /* The new name must be a plain name that does not exist yet */
+  if (!*dirname) {
+    set_error(ERROR_SYNTAX_NONAME);
+    return;
+  }
+
+  if (ustrchr(dirname, '*') || ustrchr(dirname, '?')) {
+    set_error(ERROR_SYNTAX_JOKER);
+    return;
+  }
+
+  res = first_match(path, dirname, FLAG_HIDDEN, &dent);
+  if (res == 0) {
+    set_error(ERROR_FILE_EXISTS);
+    return;
+  }
+  if (res > 0)
+    return;
+  set_error(ERROR_OK); // because first_match has set FNF
 
   buf = alloc_buffer();
   if (buf == NULL)
