@@ -789,6 +789,10 @@ static void parse_mkdir(void) {
   }
   if (parse_path(command_buffer+2, &path, &name, 0))
     return;
+  if (*name == 0xa0) {
+    set_error(ERROR_SYNTAX_NONAME);
+    return;
+  }
   mkdir(&path,name);
 }
 
@@ -1792,7 +1796,7 @@ static void parse_rename(void) {
 
   /* Don't allow an empty new name */
   /* The 1541 renames the file to "=" in this case, but I consider that a bug. */
-  if (ustrlen(newname) == 0) {
+  if (ustrlen(newname) == 0 || *newname == 0xa0) {
     set_error(ERROR_SYNTAX_NONAME);
     return;
   }

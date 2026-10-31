@@ -224,25 +224,15 @@ uint8_t match_name_str(uint8_t *matchstr, uint8_t *filename, uint8_t ignorecase)
       break;
     }
   }
-#ifdef CONFIG_XE5
   if (*matchstr && *matchstr != '*' && chars_remain != 0) {
-    /* Mode 5 drops trailing shifted spaces of a name */
-    if (file_extension_mode != 5)
-      return 0;
-
+    /* Trailing shifted spaces only pad a name */
     while (*matchstr == 0xa0)
       matchstr++;
-    if (*matchstr)
+    if (*matchstr && *matchstr != '*')
       return 0;
   }
 
   return 1;
-#else
-  if (*matchstr && *matchstr != '*' && chars_remain != 0)
-    return 0;
-  else
-    return 1;
-#endif
 }
 
 /**

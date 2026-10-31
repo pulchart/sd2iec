@@ -863,6 +863,14 @@ void file_open_previous(void) {
  * secondary address. All special names and prefixes/suffixed are handled
  * here, e.g. $/#/@/,S,W
  */
+/* Cut the shifted spaces that pad a name */
+static void trim_padding(uint8_t *name) {
+  uint8_t len = ustrlen(name);
+
+  while (len && name[len-1] == 0xa0)
+    name[--len] = 0;
+}
+
 void file_open(uint8_t secondary) {
   buffer_t *buf;
   uint8_t i = 0;
@@ -1104,6 +1112,7 @@ void file_open(uint8_t secondary) {
         {
            memset(&dent, 0, sizeof(dent));
            ustrncpy(dent.name, fname, CBM_NAME_LENGTH);
+           trim_padding(dent.name);
         }
       } else {
         /* Write existing file without replacement: Raise error */
@@ -1113,7 +1122,7 @@ void file_open(uint8_t secondary) {
     } else {
       /* Normal write or non-existing rewrite */
       /* Doesn't exist: Copy name to dent */
-      if (ustrchr(fname, '*') || ustrchr(fname, '?'))
+      if (ustrchr(fname, '*') || ustrchr(fname, '?') || *fname == 0xa0)
       {
          if (command_buffer[0] == '@')
             set_error(64);
@@ -1123,6 +1132,7 @@ void file_open(uint8_t secondary) {
       }
       memset(&dent, 0, sizeof(dent));
       ustrncpy(dent.name, fname, CBM_NAME_LENGTH);
+      trim_padding(dent.name);
       set_error(ERROR_OK); // because first_match has set FNF
     }
   } else if (res != 0) {
