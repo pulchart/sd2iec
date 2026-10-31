@@ -61,9 +61,9 @@ volatile uint8_t parallel_rxflag;
 
 /* Small helper for fastloaders that need to detect disk changes */
 #ifdef CONFIG_ONBOARD_DISPLAY
-/* The menu is not served while a fastloader is active */
+/* A long key press leaves the loader, the menu is not served meanwhile */
 uint8_t check_keys(void) {
-  return 0;
+  return get_key_long(KEY_ANY) != 0;
 }
 #else
 uint8_t check_keys(void) {
