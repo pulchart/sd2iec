@@ -2152,9 +2152,10 @@ uint8_t image_write(uint8_t part, DWORD offset, void *buffer, uint16_t bytes, ui
   FRESULT res;
   UINT byteswritten;
 
-  /* Refuse writes to a soft write protected Dxx image */
+  /* Refuse writes to a write protected Dxx image */
   if (partition[part].fop == &d64ops &&
-      (partition[part].imagetype & D64_IS_READONLY)) {
+      ((partition[part].imagetype & D64_IS_READONLY) ||
+       !(partition[part].imagehandle.flag & FA_WRITE))) {
     set_error(ERROR_WRITE_PROTECT);
     return 2;
   }

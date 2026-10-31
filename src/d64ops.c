@@ -251,13 +251,15 @@ static uint32_t header_version_offset(uint8_t part) {
 }
 
 /**
- * d64_locked - check for a soft write protected image
+ * d64_locked - check for a write protected image
  * @part: partition number
  *
- * Returns 1 and sets the write protect error if the image is locked.
+ * Returns 1 and sets the write protect error if the image is locked
+ * or its file is read-only.
  */
 static uint8_t d64_locked(uint8_t part) {
-  if (partition[part].imagetype & D64_IS_READONLY) {
+  if ((partition[part].imagetype & D64_IS_READONLY) ||
+      !(partition[part].imagehandle.flag & FA_WRITE)) {
     set_error(ERROR_WRITE_PROTECT);
     return 1;
   }
@@ -1677,12 +1679,6 @@ static void d64_open_read(path_t *path, cbmdirent_t *dent, buffer_t *buf, uint8_
 static void d64_open_write(path_t *path, cbmdirent_t *dent, uint8_t type, buffer_t *buf, uint8_t append) {
   dh_t dh;
   uint8_t *ptr;
-
-  /* Check for read-only image file */
-  if (!(partition[path->part].imagehandle.flag & FA_WRITE)) {
-    set_error(ERROR_WRITE_PROTECT);
-    return;
-  }
 
   if (d64_locked(path->part))
     return;
