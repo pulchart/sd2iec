@@ -528,8 +528,23 @@ static bool is_valid_fat_char(const uint8_t c) {
  * This function checks if @name is a valid name for a FAT
  * file. Returns true if it is, false if not.
  */
+static bool is_reserved_fat_name(const uint8_t *name) {
+  uint8_t buf[5];
+  uint8_t len;
+
+  /* upper-case copy of the first five characters */
+  for (len = 0; len < sizeof(buf) && name[len]; len++)
+    buf[len] = toupper(name[len]);
+
+  return is_reserved_name(buf, len);
+}
+
 static bool is_valid_fat_name(const uint8_t *name) {
   const uint8_t *ptr = name;
+
+  /* DOS device names are no usable file names */
+  if (is_reserved_fat_name(name))
+    return false;
 
   /* check all characters for validity */
   while (*ptr) {
@@ -606,7 +621,8 @@ static uint8_t* build_name(uint8_t *name, uint8_t type, uint8_t how) {
        !is_valid_fat_name(name))) {
 
       uint8_t *x00ext = NULL;
-      uint8_t len = 0;
+      uint8_t *start = name;
+      bool reserved = is_reserved_fat_name(name);
 
       /* Append .[PSUR]00 suffix to the file name */
       while (*name) {
@@ -615,9 +631,6 @@ static uint8_t* build_name(uint8_t *name, uint8_t type, uint8_t how) {
         } else {
           *name++ = '_';
         }
-        /* the name part of an x00 file has at most 8 characters */
-        if (++len == 8)
-          break;
       }
       *name++ = '.';
       *name++ = pgm_read_byte(filetypes+3*type);
@@ -625,6 +638,10 @@ static uint8_t* build_name(uint8_t *name, uint8_t type, uint8_t how) {
       x00ext = name;
       *name++ = '0';
       *name   = 0;
+
+      /* the x00 name must not be a device name either */
+      if (reserved)
+        *start = '_';
 
       return x00ext;
   }
@@ -1188,7 +1205,6 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   uint8_t typechar;
 #ifdef CONFIG_XE5
   uint8_t rawtype = 0;
-  bool hidden;
 #endif
 
   finfo.lfn = ops_scratch;
@@ -1225,10 +1241,6 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   }
 
 #ifdef CONFIG_XE5
-  /* A name that starts with an escape is not hidden */
-  hidden = *nameptr == '.';
-
-
   if (file_extension_mode == 5) {
     /* Find the type extension before the decoding drops a trailing "{}" */
     uint8_t len = ustrlen(nameptr);
@@ -1254,13 +1266,6 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   /* File type */
   if (finfo.fattrib & AM_DIR) {
     dent->typeflags = TYPE_DIR;
-    /* Hide directories starting with . */
-#ifdef CONFIG_XE5
-    if (hidden)
-#else
-    if (*nameptr == '.')
-#endif
-      dent->typeflags |= FLAG_HIDDEN;
 
   } else {
     /* Search for the file extension */
@@ -2152,9 +2157,10 @@ uint8_t image_write(uint8_t part, DWORD offset, void *buffer, uint16_t bytes, ui
   FRESULT res;
   UINT byteswritten;
 
-  /* Refuse writes to a soft write protected Dxx image */
+  /* Refuse writes to a write protected Dxx image */
   if (partition[part].fop == &d64ops &&
-      (partition[part].imagetype & D64_IS_READONLY)) {
+      ((partition[part].imagetype & D64_IS_READONLY) ||
+       !(partition[part].imagehandle.flag & FA_WRITE))) {
     set_error(ERROR_WRITE_PROTECT);
     return 2;
   }
@@ -2241,7 +2247,7 @@ static uint8_t check_free(uint8_t part, uint32_t need) {
   return have < need;
 }
 
-/* Create D41, D71 or D81 image */
+/* Create a D41, D71, D81, D80, D82 or DNP image */
 void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
   FRESULT  res;
   uint8_t  imagetype;
@@ -2251,13 +2257,6 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
   uint8_t  autoext = 0;
 #endif
   uint32_t fsize;
-
-  /* The id is two characters, optionally followed by + or - */
-  if (id != NULL && ustrlen(id) != 2 &&
-      !(ustrlen(id) == 3 && (id[2] == '+' || id[2] == '-'))) {
-    set_error(ERROR_SYNTAX_UNKNOWN);
-    return;
-  }
 
   /* derive filename from name given to NEW: and store it in ops_scratch */
   ustrcpy(ops_scratch, name);
@@ -2284,6 +2283,20 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
 #ifdef CONFIG_XE5
     autoext = 1;
 #endif
+  }
+
+  /* The id is two characters, optionally followed by + or -, a DNP has the number of tracks */
+  if (id != NULL) {
+    if (imagetype == IMG_IS_DNP) {
+      if (ustrlen(id) != 3 || !isdigit(id[0]) || !isdigit(id[1]) || !isdigit(id[2])) {
+        set_error(ERROR_SYNTAX_UNKNOWN);
+        return;
+      }
+    } else if (ustrlen(id) != 2 &&
+               !(ustrlen(id) == 3 && (id[2] == '+' || id[2] == '-'))) {
+      set_error(ERROR_SYNTAX_UNKNOWN);
+      return;
+    }
   }
 
   partition[path->part].fatfs.cdir = path->dir.fat;
@@ -2338,6 +2351,14 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
         fsize = 1066496;
         break;
 #endif
+      case IMG_IS_DNP:
+        /* 65536 bytes per track, 1 to 255 tracks */
+        fsize = 65536UL * (100 * (id[0] - '0') + 10 * (id[1] - '0') + (id[2] - '0'));
+        if (fsize > 255 * 65536UL) {
+          set_error(ERROR_SYNTAX_UNKNOWN);
+          return;
+        }
+        break;
       default:
         fsize = 0;
         break;
@@ -2361,8 +2382,8 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
     if (res == FR_OK)
       res = f_lseek(&partition[path->part].imagehandle, fsize);
   } else if (res == FR_OK) { // image file exists
-    /* Don't overwrite the image if the extension was auto-appended */
-    if (ext == NULL) {
+    /* Don't overwrite the image if the extension was auto-appended, a DNP is never formatted here */
+    if (ext == NULL || imagetype == IMG_IS_DNP) {
       f_close(&partition[path->part].imagehandle);
       set_error(ERROR_FILE_EXISTS);
       return;
@@ -2371,6 +2392,12 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
 
   if (res != FR_OK) {
     parse_error(res,1);
+    return;
+  }
+
+  /* A new DNP is an empty file, N: formats it after it is mounted */
+  if (imagetype == IMG_IS_DNP) {
+    f_close(&partition[path->part].imagehandle);
     return;
   }
 

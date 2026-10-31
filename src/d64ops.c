@@ -251,13 +251,15 @@ static uint32_t header_version_offset(uint8_t part) {
 }
 
 /**
- * d64_locked - check for a soft write protected image
+ * d64_locked - check for a write protected image
  * @part: partition number
  *
- * Returns 1 and sets the write protect error if the image is locked.
+ * Returns 1 and sets the write protect error if the image is locked
+ * or its file is read-only.
  */
 static uint8_t d64_locked(uint8_t part) {
-  if (partition[part].imagetype & D64_IS_READONLY) {
+  if ((partition[part].imagetype & D64_IS_READONLY) ||
+      !(partition[part].imagehandle.flag & FA_WRITE)) {
     set_error(ERROR_WRITE_PROTECT);
     return 1;
   }
@@ -1678,12 +1680,6 @@ static void d64_open_write(path_t *path, cbmdirent_t *dent, uint8_t type, buffer
   dh_t dh;
   uint8_t *ptr;
 
-  /* Check for read-only image file */
-  if (!(partition[path->part].imagehandle.flag & FA_WRITE)) {
-    set_error(ERROR_WRITE_PROTECT);
-    return;
-  }
-
   if (d64_locked(path->part))
     return;
 
@@ -1814,7 +1810,15 @@ static uint8_t d64_delete(path_t *path, cbmdirent_t *dent) {
   return 1;
 }
 
+#ifdef CONFIG_LOADER_N0S_IFFL
+d64_lastread_t d64_lastread;  // last read track/sector
+#endif
+
 static void d64_read_sector(buffer_t *buf, uint8_t part, uint8_t track, uint8_t sector) {
+#ifdef CONFIG_LOADER_N0S_IFFL
+  d64_lastread.track = track;
+  d64_lastread.sector = sector;
+#endif
   checked_read(part, track, sector, buf->data, 256, ERROR_ILLEGAL_TS_COMMAND);
 }
 
@@ -1929,6 +1933,8 @@ static uint8_t d64_chdir(path_t *path, cbmdirent_t *dirname) {
 static void d64_mkdir(path_t *path, uint8_t *dirname) {
   dh_t dh;
   buffer_t *buf;
+  cbmdirent_t dent;
+  int8_t res;
   uint8_t h_track,h_sector,d_track,d_sector;
   uint8_t *ptr, *name;
 
@@ -1939,6 +1945,26 @@ static void d64_mkdir(path_t *path, uint8_t *dirname) {
 
   if (d64_locked(path->part))
     return;
+
+  /* The new name must be a plain name that does not exist yet */
+  if (!*dirname) {
+    set_error(ERROR_SYNTAX_NONAME);
+    return;
+  }
+
+  if (ustrchr(dirname, '*') || ustrchr(dirname, '?')) {
+    set_error(ERROR_SYNTAX_JOKER);
+    return;
+  }
+
+  res = first_match(path, dirname, FLAG_HIDDEN, &dent);
+  if (res == 0) {
+    set_error(ERROR_FILE_EXISTS);
+    return;
+  }
+  if (res > 0)
+    return;
+  set_error(ERROR_OK); // because first_match has set FNF
 
   buf = alloc_buffer();
   if (buf == NULL)
@@ -2005,8 +2031,10 @@ static void d64_mkdir(path_t *path, uint8_t *dirname) {
 
   ptr = buf->data + DNP_ID_OFFSET;
   *ptr++ = dirname[0];
-  *ptr++ = dirname[1];
-   ptr++;
+  *ptr = dirname[1];
+  if (!*ptr)
+    *ptr = 0xa0;
+  ptr += 2;
   *ptr++ = '1';
   *ptr++ = 'H';
 

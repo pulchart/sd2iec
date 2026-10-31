@@ -297,6 +297,11 @@ Supported commands:
   default extension. In this case the command aborts with a "FILE EXISTS"
   error instead.
 
+  A name ending in .DNP creates an empty DNP image, the id is the number of
+  tracks as three digits, 001 to 255: "N:TEST.DNP,100". The image is not
+  formatted, mount it and use N again. An existing file aborts the command
+  with a "FILE EXISTS" error.
+
   Path specifiers are supported, so "N//SUBDIR:D64TEST.D64,XX" will
   create the image in the directory "/SUBDIR".
 
@@ -880,6 +885,22 @@ Note: Using sd2iec without an external crystal or similiar precise
   use configuration options which are not supported and therefore
   might not work.
 
+  Another World
+  -------------
+  The loader is captive and requires a reset to exit. doc/anotherworld.txt
+  describes the loader and its protocol.
+
+  Wings of Fury (PAL import)
+  --------------------------
+  This loader checks address $FFFE of the 1541 ROM to validate the drive.
+  Put a ROM image of a 1541 (1541.bin) in the directory of the game's D64
+  image and set it as the source for M-R once, then save the setting:
+
+    OPEN 1,8,15:PRINT#1,"XR:1541.BIN":CLOSE 1
+    OPEN 1,8,15:PRINT#1,"XW":CLOSE 1
+
+  Or, with a DOS enhancer: @XR:1541.BIN and @XW. See doc/wingsoffury.txt.
+
   Demo loaders: Bitfire, BoozeLoader, Sparkle, Spindle
   ----------------------------------------------------
 
@@ -919,8 +940,8 @@ FAT file name. Renaming them changes the internal name and the FAT file
 name. The XE command defines if x00 extensions are used when writing
 files, by default sd2iec uses them for SEQ/USR/REL files but not for PRG.
 Parsing of x00 files is always enabled even when writing them is not.
-The FAT file name of a new x00 file has at most eight characters, characters
-FAT can't store and dots become '_'.
+In the FAT file name of a new x00 file characters FAT can't store and dots
+become '_'.
 
 x00 files are recognized by checking both the extension of the file
 (P/S/U/R with a two-digit suffix) and the header signature.

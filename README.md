@@ -17,8 +17,11 @@ LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, wi
 - Commands `A:`, `L`/`EL`/`EU`, `EH`, `R-H` and `D:` for attributes, locking and hiding of files and the header, `EL:$` locks a whole disk image
 - `XN+`/`XN-` fast format, `XET+`/`XET-` strict file type check, `XEL`/`XEU` lock of the extension settings, `XH+`/`XH-` hidden files in images
 - Partition listing filtered by image type, `$=P:*=N`
-- Fixes for `COPY` errors, REL record length 13, locked files in images and error codes
-- Boards `petSD+` and `cbmSD-mini` (configs `petSD+` and `cbmSDmini`) with an on-board display and menu, the bus (IEC or IEEE-488) is selected at runtime, and D80 and D82 disk images
+- `N:name.dnp,nnn` creates a DNP image (CMD native partition with subdirectories) with nnn tracks, 001 to 255
+- Fixes for `COPY` errors, REL record length 13, locked files in images, read-only images, DOS device names, names ending in shifted spaces, one-letter DNP directories and error codes
+- Boards `petSD+` and `cbmSD-mini` (configs `petSD+` and `cbmSDmini`) with an on-board display and menu, the bus (IEC or IEEE-488) is selected at runtime
+- D80 and D82 disk images (8050 and 8250) in all builds
+- Fastloaders on `petSD+` and `cbmSD-mini`, and the loaders of Another World and Wings of Fury (needs a 1541 ROM image set with `XR`)
 
 ## Display
 
@@ -68,7 +71,7 @@ FAT has no file type and does not take every C64 name. `XEn` selects how a file 
 
 An x00 file keeps the type and the C64 name in a header. With `XE+` the directory takes the type from a `.SEQ`, `.USR`, `.REL` or `.PRG` extension and hides it, modes 3 to 5 turn `XE+` on. Without it every file with another extension, or without one, lists as PRG.
 
-In modes 0 to 4 a name with a character other than letters, digits, space and `! # $ % & ' ( ) - .` is stored as x00, whatever the mode says. The file name is the first 8 characters with `_` for every character that is not accepted, the C64 name is in the header. `A/B` as PRG becomes `A_B.P00`.
+In modes 0 to 4 a name with a character other than letters, digits, space and `! # $ % & ' ( ) - .` is stored as x00, whatever the mode says. The file name has `_` for every character that is not accepted, the C64 name is in the header. `A/B` as PRG becomes `A_B.P00`.
 
 Mode 5 writes these characters as the PETSCII code in hex between braces: codes below 32 and from 96 up, `: / \ * " < > ?`, a dot at the start and a dot or space at the end. Following characters of this kind share one pair of braces.
 
@@ -92,7 +95,7 @@ The builds are for the ATmega1284P (128 KB flash), `uIEC` and `uIEC3` for the AT
 
 The `uIEC` build mounts 15 partitions at most, the other builds keep the number of their config.
 
-The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. Of the fastloaders only JiffyDOS is built, the other routines do not support the non-inverted IEC output lines of these boards. D80 and D82 images (8050 and 8250) are supported by these two builds only.
+The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. All fastloaders are built except the burst and parallel ones, which need an SRQ interrupt and a parallel port these boards do not have. A long key press leaves a running loader.
 
 ## Programming
 
@@ -111,7 +114,7 @@ Every update needs the programmer. avrdude erases the whole chip.
 
 ```
 avrdude -c usbasp -P usb -p m1284p \
-  -U flash:w:dist/sd2iec-1.186.5-jpu-m1284p-larsp-oled.bin:r \
+  -U flash:w:dist/sd2iec-1.186.6-jpu-m1284p-larsp-oled.bin:r \
   -U efuse:w:0xFD:m \
   -U hfuse:w:0xD2:m \
   -U lfuse:w:0xE7:m
@@ -121,7 +124,7 @@ Fuses already set, firmware only:
 
 ```
 avrdude -c usbasp -P usb -p m1284p \
-  -U flash:w:dist/sd2iec-1.186.5-jpu-m1284p-larsp-oled.bin:r
+  -U flash:w:dist/sd2iec-1.186.6-jpu-m1284p-larsp-oled.bin:r
 ```
 
 ### With bootloader
@@ -143,7 +146,7 @@ To write the firmware with the programmer and keep the bootloader, add `-D`:
 
 ```
 avrdude -c usbasp -P usb -p m1284p -D \
-  -U flash:w:dist/sd2iec-1.186.5-jpu-m1284p-larsp-oled.bin:r
+  -U flash:w:dist/sd2iec-1.186.6-jpu-m1284p-larsp-oled.bin:r
 ```
 
 ## Build
@@ -154,7 +157,7 @@ Needs `avr-gcc` and `avr-libc`. One config:
 make CONFIG=configs/config-larsp-oled
 ```
 
-The binary is `obj-m1284p-larsp-oled/sd2iec.bin`. All configs, into `dist/` as `sd2iec-<version>-<mcu>-<config>.bin`, for example `sd2iec-1.186.5-jpu-m1284p-larsp-oled.bin`:
+The binary is `obj-m1284p-larsp-oled/sd2iec.bin`. All configs, into `dist/` as `sd2iec-<version>-<mcu>-<config>.bin`, for example `sd2iec-1.186.6-jpu-m1284p-larsp-oled.bin`:
 
 ```
 make dist
@@ -166,7 +169,7 @@ make dist
 
 ## Version
 
-The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for example `1.186.5-JPU`, `1.186.5-JPU+LCD` and `1.186.5-JPU+OLED`.
+The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for example `1.186.6-JPU`, `1.186.6-JPU+LCD` and `1.186.6-JPU+OLED`.
 
 | Part | Meaning |
 |---|---|
@@ -179,9 +182,9 @@ The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for exampl
 
 | Where | Example |
 |---|---|
-| Error channel (`UI`) | `SD2IEC V1.186.5-JPU+OLED` |
-| LCD line 1 | `SD2IEC 1.186.5` |
-| File name | `sd2iec-1.186.5-jpu-m1284p-larsp-oled.bin` |
+| Error channel (`UI`) | `SD2IEC V1.186.6-JPU+OLED` |
+| LCD line 1 | `SD2IEC 1.186.6` |
+| File name | `sd2iec-1.186.6-jpu-m1284p-larsp-oled.bin` |
 
 The version is set in `version.mk`. The boot loader flashes every build.
 

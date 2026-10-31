@@ -43,6 +43,7 @@
 #include "filesystem.h"
 #include "flags.h"
 #include "iec.h"
+#include "bus.h"
 #include "led.h"
 #include "parser.h"
 #include "system.h"
@@ -315,6 +316,16 @@ static const PROGMEM struct fastloader_crc_s fl_crc_table[] = {
   { 0xc1bc, FL_BITFIRE_13,       RXTX_BITFIRE_IDATA },
 #endif
 
+#ifdef CONFIG_LOADER_ANOTHERWORLD
+  { 0xa018, FL_ANOTHERWORLD,     RXTX_NONE          }, // CRC of Another World M-W ($0500..$053f)
+#endif
+#ifdef CONFIG_LOADER_WINGSOFFURY
+  { 0xc536, FL_WINGSOFFURY,      RXTX_NONE          }, // CRC of WoF M-W ($0300..$069f)
+#endif
+#ifdef CONFIG_LOADER_N0S_IFFL
+  { 0xed6c, FL_N0S_IFFL_SCAN,    RXTX_NONE          }, // CRC of N0S scanner ($0400..$04d9)
+  { 0xfbb9, FL_N0S_IFFL_LOAD,    RXTX_NONE          }, // CRC of N0S loader ($03b5..$056c)
+#endif
   { 0, FL_NONE, 0 }, // end marker
 };
 
@@ -476,6 +487,17 @@ static const PROGMEM struct fastloader_handler_s fl_handler_table[] = {
   { 0x0205, FL_NONE,             load_sparkle,   0 },
 #endif
 
+#ifdef CONFIG_LOADER_ANOTHERWORLD
+  { 0x0500, FL_ANOTHERWORLD,     load_anotherworld, 0 },
+#endif
+#ifdef CONFIG_LOADER_WINGSOFFURY
+  { 0x0300, FL_WINGSOFFURY,      load_wingsoffury, 0 },
+#endif
+#ifdef CONFIG_LOADER_N0S_IFFL
+  { 0x0483, FL_N0S_IFFL_SCAN,    scan_n0s_iffl, 0 },
+  { 0x03b5, FL_N0S_IFFL_LOAD,    load_n0s_iffl, 0 },
+#endif
+
   { 0, FL_NONE, NULL, 0 }, // end marker
 };
 
@@ -490,6 +512,11 @@ static const PROGMEM struct fastloader_capture_s fl_capture_table[] = {
 #ifdef CONFIG_LOADER_GEOS
   { FL_GEOS_S1_64,  0x42a, 255, BUFFER_SYS_CAPTURE1 },
   { FL_GEOS_S1_128, 0x44f, 255, BUFFER_SYS_CAPTURE1 },
+#endif
+#ifdef CONFIG_LOADER_N0S_IFFL
+  { FL_N0S_IFFL_SCAN, 0x590, 207, BUFFER_SYS_CAPTURE1 },
+  { FL_N0S_IFFL_SCAN, 0x660, 207, BUFFER_SYS_CAPTURE2 },
+  { FL_N0S_IFFL_SCAN, 0x730, 207, BUFFER_SYS_CAPTURE3 },
 #endif
 
   { FL_NONE, 0, 0, 0 }  // end marker
@@ -689,7 +716,12 @@ static void run_loader(uint16_t address) {
 
     loader = pgm_read_byte(&ptr->loadertype);
 
-    if (detected_loader == loader && address == pgm_read_word(&ptr->address)) {
+    if (detected_loader == loader && address == pgm_read_word(&ptr->address)
+#ifdef HAVE_DUAL_INTERFACE
+        /* The loaders drive the IEC lines, which are handshake lines of the IEEE-488 bus */
+        && active_bus == IEC
+#endif
+        ) {
       /* Found it: Call and exit loop if handled */
       if (handler(pgm_read_byte(&ptr->parameter))) {
         /* If handled and the handler didn't explicitly set  */
@@ -789,6 +821,10 @@ static void parse_mkdir(void) {
   }
   if (parse_path(command_buffer+2, &path, &name, 0))
     return;
+  if (*name == 0xa0) {
+    set_error(ERROR_SYNTAX_NONAME);
+    return;
+  }
   mkdir(&path,name);
 }
 
@@ -1792,7 +1828,7 @@ static void parse_rename(void) {
 
   /* Don't allow an empty new name */
   /* The 1541 renames the file to "=" in this case, but I consider that a bug. */
-  if (ustrlen(newname) == 0) {
+  if (ustrlen(newname) == 0 || *newname == 0xa0) {
     set_error(ERROR_SYNTAX_NONAME);
     return;
   }
