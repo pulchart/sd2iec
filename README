@@ -885,6 +885,22 @@ Note: Using sd2iec without an external crystal or similiar precise
   use configuration options which are not supported and therefore
   might not work.
 
+  Another World
+  -------------
+  The loader is captive and requires a reset to exit. doc/anotherworld.txt
+  describes the loader and its protocol.
+
+  Wings of Fury (PAL import)
+  --------------------------
+  This loader checks address $FFFE of the 1541 ROM to validate the drive.
+  Put a ROM image of a 1541 (1541.bin) in the directory of the game's D64
+  image and set it as the source for M-R once, then save the setting:
+
+    OPEN 1,8,15:PRINT#1,"XR:1541.BIN":CLOSE 1
+    OPEN 1,8,15:PRINT#1,"XW":CLOSE 1
+
+  Or, with a DOS enhancer: @XR:1541.BIN and @XW. See doc/wingsoffury.txt.
+
   Demo loaders: Bitfire, BoozeLoader, Sparkle, Spindle
   ----------------------------------------------------
 
