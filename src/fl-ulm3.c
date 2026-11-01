@@ -30,6 +30,7 @@
 #include <string.h>
 #include "config.h"
 #include "buffers.h"
+#include "display_lcd.h"
 #include "errormsg.h"
 #include "fastloader-ll.h"
 #include "fileops.h"
@@ -122,6 +123,13 @@ bool load_uload3(UNUSED_PARAMETER) {
   opendir(&dh, &curpath);
 
   while (1) {
+#ifdef CONFIG_LCD_DISPLAY
+    /* Idle until the C64 sends a command, keep the display scrolling */
+    set_data(1);
+    set_clock(0);
+    while (IEC_DATA && IEC_ATN)
+      DS_TICK();
+#endif
     /* read command */
     cmd = uload3_get_byte();
     if (cmd < 0) {
