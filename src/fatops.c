@@ -1859,6 +1859,8 @@ static bool rename_name_fits(const uint8_t *newname) {
  * This function renames the file in dent in the directory referenced by
  * path to newname.
  */
+static void fat_convert(path_t *path, cbmdirent_t *dent, uint8_t *newname);
+
 void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
   uint8_t *ext;
   FRESULT res;
@@ -1955,6 +1957,12 @@ void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
       ustrcpy(ops_scratch, newname);
       build_name(ops_scratch, dent->typeflags & TYPE_MASK, BN_RENAME);
       if (!*ops_scratch) {
+        /* Not a FAT name: only an x00 file can have it, convert makes one. */
+        /* Not for a directory, convert would just come back here.          */
+        if ((dent->typeflags & TYPE_MASK) != TYPE_DIR) {
+          fat_convert(path, dent, newname);
+          return;
+        }
         set_error_ts(ERROR_SYNTAX_JOKER,0,0);
         return;
       }
@@ -2625,7 +2633,9 @@ static void fat_convert(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
     needs_copy = x00ext != NULL;
   }
 
-  if (!needs_copy) {
+  /* A directory is never an x00 file (xe1/xe2 would copy it), it is */
+  /* just renamed. fat_rename does not come back for it.             */
+  if (!needs_copy || (dent->typeflags & TYPE_MASK) == TYPE_DIR) {
     /* Plain rename is sufficient */
     fat_rename(path, dent, target);
   } else {
