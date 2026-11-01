@@ -147,55 +147,42 @@ uint8_t parse_partition(uint8_t **buf) {
 
 
 /**
- * match_name - Match a pattern against a file name
- * @matchstr  : pattern to be matched
- * @dent      : pointer to the directory entry to be matched against
- * @ignorecase: ignore the case of the file names
- *
- * This function tests if matchstr matches name in dent.
- * Returns 1 for a match, 0 otherwise.
- */
-uint8_t match_name(uint8_t *matchstr, cbmdirent_t *dent, uint8_t ignorecase) {
-  return match_name_str(matchstr, dent->name, ignorecase);
-}
-
-/**
- * match_name_str - Match a pattern against a name string
+ * match_pad - Match a pattern against a name padded with shifted spaces
  * @matchstr  : pattern to be matched
  * @filename  : name to be matched against
  * @ignorecase: ignore the case of the file names
+ * @raw       : name is a 16 byte field in which a zero stands for 0xa0
  *
- * This function tests if matchstr matches filename.
+ * A name is padded with 0xa0, the end of the pattern matches the padding
+ * and a shifted space in the middle of a name is a character of its own.
+ * ? does not match the padding.
  * Returns 1 for a match, 0 otherwise.
  */
-uint8_t match_name_str(uint8_t *matchstr, uint8_t *filename, uint8_t ignorecase) {
+static uint8_t match_pad(uint8_t *matchstr, uint8_t *filename, uint8_t ignorecase, uint8_t raw) {
   uint8_t *starpos;
-  uint8_t m,f;
+  uint8_t m,f,pad;
   uint8_t chars_remain = 16;
 
-#if 0
-  /* Shortcut for chaining fastloaders ("!*file") */
-  if (*filename == *matchstr && matchstr[1] == '*')
-    return 1;
-#endif
-
-  while (chars_remain && *filename) {
+  while (chars_remain) {
+    m = *matchstr;
+    f = *filename;
     if (ignorecase) {
-      m = tolower_pet(*matchstr);
-      f = tolower_pet(*filename);
-    } else {
-      m = *matchstr;
-      f = *filename;
+      m = tolower_pet(m);
+      f = tolower_pet(f);
     }
+    pad = (f == 0 || f == 0xa0);
+
     switch (m) {
+    case 0:
+      return pad;
+
     case '?':
-      filename++;
-      matchstr++;
-      chars_remain--;
+      if (pad)
+        return 0;
       break;
 
     case '*':
-      if (globalflags & POSTMATCH) {
+      if (f && (globalflags & POSTMATCH)) {
         starpos = matchstr;
         matchstr += ustrlen(matchstr)-1;
         filename += ustrlen(filename)-1;
@@ -216,33 +203,44 @@ uint8_t match_name_str(uint8_t *matchstr, uint8_t *filename, uint8_t ignorecase)
       return 1;
 
     default:
-      if (m != f)
+      if (m != (pad ? 0xa0 : f))
         return 0;
-      matchstr++;
-      filename++;
-      chars_remain--;
       break;
     }
-  }
-#ifdef CONFIG_XE5
-  if (*matchstr && *matchstr != '*' && chars_remain != 0) {
-    /* Mode 5 drops trailing shifted spaces of a name */
-    if (file_extension_mode != 5)
-      return 0;
 
-    while (*matchstr == 0xa0)
-      matchstr++;
-    if (*matchstr)
-      return 0;
+    matchstr++;
+    if (f || raw)
+      filename++;
+    chars_remain--;
   }
 
   return 1;
-#else
-  if (*matchstr && *matchstr != '*' && chars_remain != 0)
-    return 0;
-  else
-    return 1;
-#endif
+}
+
+/**
+ * match_name - Match a pattern against a file name
+ * @matchstr  : pattern to be matched
+ * @dent      : pointer to the directory entry to be matched against
+ * @ignorecase: ignore the case of the file names
+ *
+ * This function tests if matchstr matches name in dent.
+ * Returns 1 for a match, 0 otherwise.
+ */
+uint8_t match_name(uint8_t *matchstr, cbmdirent_t *dent, uint8_t ignorecase) {
+  return match_pad(matchstr, dent->name, ignorecase, dent->opstype == OPSTYPE_DXX);
+}
+
+/**
+ * match_name_str - Match a pattern against a name string
+ * @matchstr  : pattern to be matched
+ * @filename  : name to be matched against
+ * @ignorecase: ignore the case of the file names
+ *
+ * This function tests if matchstr matches filename.
+ * Returns 1 for a match, 0 otherwise.
+ */
+uint8_t match_name_str(uint8_t *matchstr, uint8_t *filename, uint8_t ignorecase) {
+  return match_pad(matchstr, filename, ignorecase, 0);
 }
 
 /**
