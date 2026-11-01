@@ -43,6 +43,7 @@
 #include "filesystem.h"
 #include "flags.h"
 #include "iec.h"
+#include "bus.h"
 #include "led.h"
 #include "parser.h"
 #include "system.h"
@@ -689,7 +690,12 @@ static void run_loader(uint16_t address) {
 
     loader = pgm_read_byte(&ptr->loadertype);
 
-    if (detected_loader == loader && address == pgm_read_word(&ptr->address)) {
+    if (detected_loader == loader && address == pgm_read_word(&ptr->address)
+#ifdef HAVE_DUAL_INTERFACE
+        /* The loaders drive the IEC lines, which are handshake lines of the IEEE-488 bus */
+        && active_bus == IEC
+#endif
+        ) {
       /* Found it: Call and exit loop if handled */
       if (handler(pgm_read_byte(&ptr->parameter))) {
         /* If handled and the handler didn't explicitly set  */
