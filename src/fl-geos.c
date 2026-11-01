@@ -164,6 +164,32 @@ static void geos_transmit_status(void) {
   }
 }
 
+/* A locked image has another DOS version in its header than the disk it came from, show the original */
+static void read_unlocked_header(buffer_t *buf, uint8_t track, uint8_t sector) {
+  uint8_t type = partition[current_part].imagetype;
+
+  if (!(type & D64_IS_READONLY))
+    return;
+
+  switch (type & D64_TYPE_MASK) {
+  case D64_TYPE_DNP:
+    if (track == 1 && sector == 1)
+      buf->data[2] = 0x48;
+    break;
+
+  case D64_TYPE_D41:
+  case D64_TYPE_D71:
+    if (track == 18 && sector == 0)
+      buf->data[2] = 0x41;
+    break;
+
+  case D64_TYPE_D81:
+    if (track == 40 && sector == 0)
+      buf->data[2] = 0x44;
+    break;
+  }
+}
+
 /* GEOS READ operation */
 static void geos_read_sector(uint8_t track, uint8_t sector, buffer_t *buf) {
   uart_putc('R');
@@ -173,6 +199,7 @@ static void geos_read_sector(uint8_t track, uint8_t sector, buffer_t *buf) {
   uart_putcrlf();
   set_error(ERROR_OK);
   read_sector(buf, current_part, track, sector);
+  read_unlocked_header(buf, track, sector);
 }
 
 /* GEOS WRITE operation */
@@ -593,6 +620,7 @@ static void wheels_read_sector(uint8_t track, uint8_t sector, buffer_t *buf, uin
 
   set_error(ERROR_OK);
   read_sector(buf, current_part, track, sector);
+  read_unlocked_header(buf, track, sector);
   wheels_transmit_datablock(buf->data, bytes);
   wheels_transmit_status();
 }
