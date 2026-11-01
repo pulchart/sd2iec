@@ -901,6 +901,13 @@ Note: Using sd2iec without an external crystal or similiar precise
 
   Or, with a DOS enhancer: @XR:1541.BIN and @XW. See doc/wingsoffury.txt.
 
+  ULoad Model 4 (Ultima IV Remastered)
+  ------------------------------------
+  The loader reads and writes by track and sector, so it needs a D64, D71
+  or D81 image. It is captive and ends when the C64 pulls ATN low or on a
+  long key press.
+  See doc/uload4.txt.
+
   Demo loaders: Bitfire, BoozeLoader, Sparkle, Spindle
   ----------------------------------------------------
 

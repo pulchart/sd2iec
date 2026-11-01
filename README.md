@@ -21,7 +21,7 @@ LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, wi
 - Fixes for `COPY` errors, REL record length 13, locked files in images, read-only images, DOS device names, names with shifted spaces, one-letter DNP directories and error codes
 - Boards `petSD+` and `cbmSD-mini` (configs `petSD+` and `cbmSDmini`) with an on-board display and menu, the bus (IEC or IEEE-488) is selected at runtime
 - D80 and D82 disk images (8050 and 8250) in all builds
-- Fastloaders on `petSD+` and `cbmSD-mini`, and the loaders of Another World and Wings of Fury (needs a 1541 ROM image set with `XR`)
+- Fastloaders on `petSD+` and `cbmSD-mini`, and the loaders of Another World, Wings of Fury (needs a 1541 ROM image set with `XR`) and Ultima IV Remastered (D64, D71, D81 images)
 
 ## Display
 

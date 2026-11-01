@@ -326,6 +326,9 @@ static const PROGMEM struct fastloader_crc_s fl_crc_table[] = {
   { 0xed6c, FL_N0S_IFFL_SCAN,    RXTX_NONE          }, // CRC of N0S scanner ($0400..$04d9)
   { 0xfbb9, FL_N0S_IFFL_LOAD,    RXTX_NONE          }, // CRC of N0S loader ($03b5..$056c)
 #endif
+#ifdef CONFIG_LOADER_ULOAD4
+  { 0x2a3f, FL_ULOAD4,     RXTX_NONE          }, // CRC of the U4 common drive code ($0300..$048b)
+#endif
   { 0, FL_NONE, 0 }, // end marker
 };
 
@@ -496,6 +499,9 @@ static const PROGMEM struct fastloader_handler_s fl_handler_table[] = {
 #ifdef CONFIG_LOADER_N0S_IFFL
   { 0x0483, FL_N0S_IFFL_SCAN,    scan_n0s_iffl, 0 },
   { 0x03b5, FL_N0S_IFFL_LOAD,    load_n0s_iffl, 0 },
+#endif
+#ifdef CONFIG_LOADER_ULOAD4
+  { 0x0371, FL_ULOAD4,     load_uload4, 0 },
 #endif
 
   { 0, FL_NONE, NULL, 0 }, // end marker
