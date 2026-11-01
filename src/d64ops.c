@@ -2005,8 +2005,10 @@ static void d64_mkdir(path_t *path, uint8_t *dirname) {
 
   ptr = buf->data + DNP_ID_OFFSET;
   *ptr++ = dirname[0];
-  *ptr++ = dirname[1];
-   ptr++;
+  *ptr = dirname[1];
+  if (!*ptr)
+    *ptr = 0xa0;
+  ptr += 2;
   *ptr++ = '1';
   *ptr++ = 'H';
 
