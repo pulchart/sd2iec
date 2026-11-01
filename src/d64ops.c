@@ -1810,7 +1810,15 @@ static uint8_t d64_delete(path_t *path, cbmdirent_t *dent) {
   return 1;
 }
 
+#ifdef CONFIG_LOADER_N0S_IFFL
+d64_lastread_t d64_lastread;  // last read track/sector
+#endif
+
 static void d64_read_sector(buffer_t *buf, uint8_t part, uint8_t track, uint8_t sector) {
+#ifdef CONFIG_LOADER_N0S_IFFL
+  d64_lastread.track = track;
+  d64_lastread.sector = sector;
+#endif
   checked_read(part, track, sector, buf->data, 256, ERROR_ILLEGAL_TS_COMMAND);
 }
 

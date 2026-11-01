@@ -102,6 +102,10 @@ typedef enum {
   FL_SPARKLE_21,
   FL_SPARKLE_32,
   FL_TRANSWARP_SLEEP,
+  FL_ANOTHERWORLD,
+  FL_WINGSOFFURY,
+  FL_N0S_IFFL_SCAN,
+  FL_N0S_IFFL_LOAD,
 } fastloaderid_t;
 
 typedef struct {
@@ -146,6 +150,10 @@ bool load_hypraload(uint8_t);
 bool drvchkme_krill(uint8_t);
 bool bus_sleep_krill(uint8_t);
 bool load_krill(uint8_t);
+bool load_anotherworld(uint8_t);
+bool load_wingsoffury(uint8_t);
+bool scan_n0s_iffl(uint8_t);
+bool load_n0s_iffl(uint8_t);
 bool load_booze(uint8_t);
 bool load_spindle(uint8_t);
 bool load_bitfire(uint8_t);

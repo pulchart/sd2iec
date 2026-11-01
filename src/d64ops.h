@@ -59,6 +59,16 @@
 #define D81_SIZE          819200
 
 extern const fileops_t d64ops;
+
+#ifdef CONFIG_LOADER_N0S_IFFL
+/* Last read track/sector, required by the N0S loaders */
+typedef struct d64_lastread_s {
+  uint8_t track;
+  uint8_t sector;
+} d64_lastread_t;
+
+extern d64_lastread_t d64_lastread;
+#endif
 extern uint8_t d64_format_full;
 
 uint16_t d64_sectors_per_track(uint8_t part, uint8_t track);
