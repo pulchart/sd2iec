@@ -622,7 +622,6 @@ static uint8_t* build_name(uint8_t *name, uint8_t type, uint8_t how) {
 
       uint8_t *x00ext = NULL;
       uint8_t *start = name;
-      uint8_t len = 0;
       bool reserved = is_reserved_fat_name(name);
 
       /* Append .[PSUR]00 suffix to the file name */
@@ -632,9 +631,6 @@ static uint8_t* build_name(uint8_t *name, uint8_t type, uint8_t how) {
         } else {
           *name++ = '_';
         }
-        /* the name part of an x00 file has at most 8 characters */
-        if (++len == 8)
-          break;
       }
       *name++ = '.';
       *name++ = pgm_read_byte(filetypes+3*type);

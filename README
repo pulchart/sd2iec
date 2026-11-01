@@ -924,8 +924,8 @@ FAT file name. Renaming them changes the internal name and the FAT file
 name. The XE command defines if x00 extensions are used when writing
 files, by default sd2iec uses them for SEQ/USR/REL files but not for PRG.
 Parsing of x00 files is always enabled even when writing them is not.
-The FAT file name of a new x00 file has at most eight characters, characters
-FAT can't store and dots become '_'.
+In the FAT file name of a new x00 file characters FAT can't store and dots
+become '_'.
 
 x00 files are recognized by checking both the extension of the file
 (P/S/U/R with a two-digit suffix) and the header signature.
