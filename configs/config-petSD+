@@ -76,6 +76,8 @@ CONFIG_LOADER_BOOZE=y
 CONFIG_LOADER_SPINDLE=y
 CONFIG_LOADER_BITFIRE=y
 CONFIG_LOADER_SPARKLE=y
+CONFIG_LOADER_ANOTHERWORLD=y
+CONFIG_LOADER_WINGSOFFURY=y
 # A remote LCD with dedicated controller is not supported because
 # the petSD+ lacks an interrupt port pin for it
 CONFIG_REMOTE_DISPLAY=n
