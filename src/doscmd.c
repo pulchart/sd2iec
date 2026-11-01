@@ -170,6 +170,8 @@ static const PROGMEM struct fastloader_crc_s fl_crc_table[] = {
 #endif
 #ifdef CONFIG_LOADER_ULOAD3
   { 0xdd81, FL_ULOAD3,           RXTX_NONE          },
+  { 0x18d3, FL_ULOAD3,           RXTX_NONE          }, // 1581 drive code of Ultima 3 Gold
+  { 0xa5ae, FL_ULOAD3,           RXTX_NONE          }, // 1571 drive code of Ultima 3 Gold
 #endif
 #ifdef CONFIG_LOADER_ELOAD1
   { 0x393e, FL_ELOAD1,           RXTX_NONE          },
@@ -545,6 +547,11 @@ static const PROGMEM magic_value_t drive_magics[] = {
   { 0xe5c6, { 0x37, 0xb1 }, DRIVE_1571            },
   { 0xa6e9, { 0x38, 0xb1 }, DRIVE_1581            },
   { 0xfea0, { 0xff, 0xff }, DRIVE_1581            },
+#if defined(CONFIG_LOADER_ULOAD3) || defined(CONFIG_LOADER_ULOAD4)
+  /* used by ULoad Model 3 and 4 on a 1571: BAM job status, double-sided flag */
+  { 0x0003, { 0x01, 0x00 }, DRIVE_1571            },
+  { 0x0603, { 0x80, 0x00 }, DRIVE_1571            },
+#endif
 
   /* end mark */
   { 0, { 0, 0 }, 0 }
