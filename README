@@ -739,10 +739,10 @@ Note: Using sd2iec without an external crystal or similiar precise
   ULoad Model 3
   -------------
   ULoad Model 3 uses direct track/sector access, so it is only supported
-  on D64 or similiar disk image formats. Currently there is exactly one
-  supported variant of ULoad Model 3, which is the one used by
-  Ultima 3 Gold. There are no other known variants at this time, but
-  this may change.
+  on D64 or similiar disk image formats. Currently supported are the
+  variants used by Ultima 3 Gold: the 1541 version, the 1571 version
+  (D71 image) and the 1581 version (D81 image). There are no other
+  known variants at this time, but this may change.
 
   If you are a coder and want to use ULoad Model 3 in your own program,
   either configure it to produce the same drive code as U3Gold or
