@@ -35,26 +35,65 @@ Line 1 shows the directory or the mounted image, line 2 the loaded or saved file
 
 A dimmed OLED lights up on a change of content. The first press of Next, Prev or Home only wakes it, the next press acts. Pins: `doc/lcd-pinout.txt`.
 
+## Commands
+
+Sent on the command channel, for example `OPEN15,8,15,"N:TEST,01":CLOSE15`, or `@"N:TEST,01"` with JiffyDOS. A command that is not listed is not supported, `README` has the details.
+
+### DOS commands
+
+| Command | Action |
+|---|---|
+| `$` | directory, `$=B` or `$=D` lists only directories, the filter `*=H` includes hidden files, `$=T` is the CMD style listing with time stamps |
+| `$=P` | partition directory with name and image type filters, `$=P:*=8` lists the D81 images, `$=P:A*=N` the NAT partitions starting with A (`=N` NAT, `=4` D41, `=7` D71, `=8` D81) |
+| `CD:name`, `CD:_` | change directory, `_` (left arrow) goes up, an image file as the last component is mounted and `CD:_` leaves it |
+| `MD:name`, `RD:name` | make or remove a directory, `MD/foo/:bar` creates `bar` in `foo`, `RD` works in the current directory only |
+| `CP`, `G-P` | change the partition, partition info |
+| `N:name,id` | format the mounted image, without an image `N:NAME.D64,ID` creates a D64, D41, D71 or D81 image (`.D64` if no extension), an id followed by `+` or `-` turns fast format on or off for this command |
+| `N:name.dnp,nnn` | create an empty DNP image with nnn tracks, 001 to 255, mount it and use `N` again to format it |
+| `S:name,name` | scratch files |
+| `R:new=old` | rename, on FAT the case of a name can be changed |
+| `C:target=source,source` | copy, several sources are appended to the target |
+| `A:R=foo`, `A:H=foo`, `A:=foo` | set read-only, hidden or no attributes of a file |
+| `L:foo`, `EL:foo`, `EU:foo` | toggle, set or clear the read-only flag, `EL:$` and `EU:$` lock and unlock a mounted image, `XL` and `XU` are the same as `EL` and `EU` |
+| `EH/:foo` | toggle the hidden flag of a file |
+| `D:name,id`, `R-H:name` | change the header name and id of a mounted image, `EH:name,id` and `XH:name,id` are the same as `D:` |
+| `P` | position in a REL file or in a regular file |
+| `U1`, `U2`, `B-R`, `B-W`, `B-P` | block access while a D64 image is mounted |
+| `DI`, `DR`, `DW` | direct sector access, needs a buffer of 512 bytes or more |
+| `T-R`, `T-W` | read or set the time, boards with an RTC |
+| `M-R`, `M-W`, `M-E` | memory access for drive detection and the fastloaders, `XR` sets a ROM file |
+| `U0>` + address | device address, saved with `XW`, used only while the hardware address of the board is the same as when it was saved |
+| `UI+`, `UI-` | faster bus protocol for the VC20 |
+| `UI`, `UJ`, `U` + Shift-J | soft reset, close all buffers, restart of the processor |
+
+### Extended commands
+
+X commands need the quotes with JiffyDOS: `@"XE5"`. A change lasts until the next reset. `XW` writes the settings marked in the XW column to the EEPROM and the firmware reads them at every start.
+
+| Command | Action | XW | Default |
+|---|---|---|---|
+| `X` | show the current settings in the error channel | | |
+| `X?` | extended version: version, processor and suffix of the config | | |
+| `XW` | write the settings to the EEPROM | | |
+| `XEn` | extension mode, see below | yes | 1 |
+| `XE+` / `XE-` | hide the type extension of FAT files, modes 3 to 5 turn it on | yes | off |
+| `XET+` / `XET-` | refuse an explicit file type that differs from the type of the file | yes | off |
+| `XEL` / `XEU` | lock / unlock `XEn`, `XE+` and `XE-` | yes | unlocked |
+| `XIn` | disk images in the directory: 0 with their normal type, 1 as directories, 2 both | yes | 0 |
+| `XN+` / `XN-` | fast format | yes | off |
+| `XH+` / `XH-` | honor the hidden flag of files in images | yes | off |
+| `X*+` / `X*-` | 1581 style `*` matching | yes | on |
+| `XDdrv=val` | drive slots, only in the `uIEC` build (SD and ATA) | yes | board default |
+| `XR:name` / `XR` | file for M-R emulation / disable it | yes | none |
+| `XS:name` / `XS` | set up a swap list / disable it | | none |
+| `XT1text`, `XT2text` | show `text` on line 1 or 2 of the display | | |
+| `XTC` + command byte + data | send a command byte and data bytes to the display controller | | |
+| `XA` | show the version and the author of the LCD code | | |
+| `XG` | show the credits | | |
+| `XCnn` | set the contrast 0 to 63, ST7036 only | | |
+| `XOn` | seconds until the OLED dims, 1 to 254, 0 always off, 255 always on, OLED builds only | yes | 45 |
+
 ## Configuration
-
-Send X commands on the command channel, for example `OPEN15,8,15,"XE5":CLOSE15`, or `@"XE5"` with JiffyDOS. A plain `X` shows the current settings in the error channel. A change lasts until the next reset. `XW` writes the settings to the EEPROM and the firmware reads them at every start.
-
-### Saved with XW
-
-| Command | Setting | Default |
-|---|---|---|
-| `XEn` | extension mode, see below | 1 |
-| `XE+` / `XE-` | hide the type extension of FAT files, modes 3 to 5 turn it on | off |
-| `XET+` / `XET-` | refuse an explicit file type that differs from the type of the file | off |
-| `XEL` / `XEU` | lock / unlock `XEn`, `XE+` and `XE-` | unlocked |
-| `XIn` | disk images in the directory: 0 with their normal type, 1 as directories, 2 both | 0 |
-| `XN+` / `XN-` | fast format | off |
-| `XH+` / `XH-` | honor the hidden flag of files in images | off |
-| `X*+` / `X*-` | 1581 style `*` matching | on |
-| `XDdrv=val` | drive slots, only in the `uIEC` build (SD and ATA) | board default |
-| `XOn` | seconds until the OLED dims, 1 to 254, 0 always off, 255 always on, OLED builds only | 45 |
-| `XR:name` | file for M-R emulation | none |
-| `U0>` + address | device address, used only while the hardware address of the board is the same as when it was saved | board address |
 
 ### File names and extension modes
 
@@ -187,18 +226,6 @@ The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for exampl
 | File name | `sd2iec-1.186.5-jpu-m1284p-larsp-oled.bin` |
 
 The version is set in `version.mk`. The boot loader flashes every build.
-
-## X-commands
-
-Sent on the command channel, for example `@"XT1HELLO"` with JiffyDOS (the quotes are required) or `OPEN15,8,15,"XT1HELLO":CLOSE15`.
-
-| Command | Action |
-|---|---|
-| `XT1text`, `XT2text` | show `text` on line 1 or 2 |
-| `XA` | show the version and the author of the LCD code |
-| `XG` | show the credits |
-| `XCnn` | set the contrast 0 to 63, ST7036 only |
-| `XOn` | OLED only: seconds until the display dims, 1 to 254, 0 always off, 255 always on. Saved with `XW` |
 
 ## Credits
 
