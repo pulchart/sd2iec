@@ -2263,7 +2263,7 @@ static uint8_t check_free(uint8_t part, uint32_t need) {
   return have < need;
 }
 
-/* Create D41, D71 or D81 image */
+/* Create a D41, D71, D81, D80, D82 or DNP image */
 void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
   FRESULT  res;
   uint8_t  imagetype;
@@ -2273,13 +2273,6 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
   uint8_t  autoext = 0;
 #endif
   uint32_t fsize;
-
-  /* The id is two characters, optionally followed by + or - */
-  if (id != NULL && ustrlen(id) != 2 &&
-      !(ustrlen(id) == 3 && (id[2] == '+' || id[2] == '-'))) {
-    set_error(ERROR_SYNTAX_UNKNOWN);
-    return;
-  }
 
   /* derive filename from name given to NEW: and store it in ops_scratch */
   ustrcpy(ops_scratch, name);
@@ -2306,6 +2299,20 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
 #ifdef CONFIG_XE5
     autoext = 1;
 #endif
+  }
+
+  /* The id is two characters, optionally followed by + or -, a DNP has the number of tracks */
+  if (id != NULL) {
+    if (imagetype == IMG_IS_DNP) {
+      if (ustrlen(id) != 3 || !isdigit(id[0]) || !isdigit(id[1]) || !isdigit(id[2])) {
+        set_error(ERROR_SYNTAX_UNKNOWN);
+        return;
+      }
+    } else if (ustrlen(id) != 2 &&
+               !(ustrlen(id) == 3 && (id[2] == '+' || id[2] == '-'))) {
+      set_error(ERROR_SYNTAX_UNKNOWN);
+      return;
+    }
   }
 
   partition[path->part].fatfs.cdir = path->dir.fat;
@@ -2360,6 +2367,14 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
         fsize = 1066496;
         break;
 #endif
+      case IMG_IS_DNP:
+        /* 65536 bytes per track, 1 to 255 tracks */
+        fsize = 65536UL * (100 * (id[0] - '0') + 10 * (id[1] - '0') + (id[2] - '0'));
+        if (fsize > 255 * 65536UL) {
+          set_error(ERROR_SYNTAX_UNKNOWN);
+          return;
+        }
+        break;
       default:
         fsize = 0;
         break;
@@ -2383,8 +2398,8 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
     if (res == FR_OK)
       res = f_lseek(&partition[path->part].imagehandle, fsize);
   } else if (res == FR_OK) { // image file exists
-    /* Don't overwrite the image if the extension was auto-appended */
-    if (ext == NULL) {
+    /* Don't overwrite the image if the extension was auto-appended, a DNP is never formatted here */
+    if (ext == NULL || imagetype == IMG_IS_DNP) {
       f_close(&partition[path->part].imagehandle);
       set_error(ERROR_FILE_EXISTS);
       return;
@@ -2393,6 +2408,12 @@ void fat_format_image(path_t *path, uint8_t *name, uint8_t *id) {
 
   if (res != FR_OK) {
     parse_error(res,1);
+    return;
+  }
+
+  /* A new DNP is an empty file, N: formats it after it is mounted */
+  if (imagetype == IMG_IS_DNP) {
+    f_close(&partition[path->part].imagehandle);
     return;
   }
 
