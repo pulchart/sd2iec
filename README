@@ -297,6 +297,11 @@ Supported commands:
   default extension. In this case the command aborts with a "FILE EXISTS"
   error instead.
 
+  A name ending in .DNP creates an empty DNP image, the id is the number of
+  tracks as three digits, 001 to 255: "N:TEST.DNP,100". The image is not
+  formatted, mount it and use N again. An existing file aborts the command
+  with a "FILE EXISTS" error.
+
   Path specifiers are supported, so "N//SUBDIR:D64TEST.D64,XX" will
   create the image in the directory "/SUBDIR".
 
