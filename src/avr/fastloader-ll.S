@@ -652,7 +652,7 @@ tdbitloop2:
         ret
 #endif
 
-#if defined(CONFIG_LOADER_DREAMLOAD) || defined(CONFIG_LOADER_FC3) || defined(CONFIG_LOADER_ULOAD3) || defined(CONFIG_LOADER_ELOAD1) || defined(CONFIG_LOADER_GEOS) || defined(CONFIG_LOADER_HYPRALOAD) || defined(CONFIG_LOADER_KRILL) || defined(CONFIG_LOADER_WINGSOFFURY) || defined(CONFIG_LOADER_N0S_IFFL)
+#if defined(CONFIG_LOADER_DREAMLOAD) || defined(CONFIG_LOADER_FC3) || defined(CONFIG_LOADER_ULOAD3) || defined(CONFIG_LOADER_ELOAD1) || defined(CONFIG_LOADER_GEOS) || defined(CONFIG_LOADER_HYPRALOAD) || defined(CONFIG_LOADER_KRILL) || defined(CONFIG_LOADER_WINGSOFFURY) || defined(CONFIG_LOADER_N0S_IFFL) || defined(CONFIG_LOADER_ULOAD4)
         ;;
         ;; Set bit 0 of r0 on CLOCK and bit 1 on DATA
         ;; Bits go to the port as is: one pulls down on inverted outputs,
@@ -704,7 +704,7 @@ get_bits_from_clk_data:
 
 #endif
 
-#if defined(CONFIG_LOADER_FC3) || defined(CONFIG_LOADER_ULOAD3) || defined(CONFIG_LOADER_ELOAD1)
+#if defined(CONFIG_LOADER_FC3) || defined(CONFIG_LOADER_ULOAD3) || defined(CONFIG_LOADER_ELOAD1) || defined(CONFIG_LOADER_ULOAD4)
         ;;
         ;; Do this kind of handshake:
         ;; set CLOCK low, wait for DATA going low,
@@ -1079,7 +1079,7 @@ dsb_bitloop:
         ret
 #endif
 
-#if defined CONFIG_LOADER_ULOAD3 || defined CONFIG_LOADER_ELOAD1
+#if defined CONFIG_LOADER_ULOAD3 || defined CONFIG_LOADER_ELOAD1 || defined CONFIG_LOADER_ULOAD4
         ;;
         ;; Receive a byte using the ULoad Model 3 protocol
         ;;

@@ -61,6 +61,7 @@ ifeq ($(CONFIG_HAVE_IEC),y)
   SRC += fl-hypraload.c fl-krill.c fl-booze.c fl-spindle.c
   SRC += fl-bitfire.c fl-sparkle.c fl-burst.c
   SRC += fl-anotherworld.c fl-wingsoffury.c fl-n0s-iffl.c
+  SRC += fl-ulm4.c
 endif
 
 ifneq ($(CONFIG_NO_SD),y)

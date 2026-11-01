@@ -78,6 +78,7 @@ CONFIG_LOADER_BITFIRE=y
 CONFIG_LOADER_SPARKLE=y
 CONFIG_LOADER_ANOTHERWORLD=y
 CONFIG_LOADER_WINGSOFFURY=y
+CONFIG_LOADER_ULOAD4=y
 # A remote LCD with dedicated controller is not supported because
 # the cbmSD mini lacks an interrupt port pin for it
 CONFIG_REMOTE_DISPLAY=n

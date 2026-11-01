@@ -1,0 +1,25 @@
+ULoad Model 4 loader (Ultima IV Remastered)
+===========================================
+
+Emulates the drive code the game uploads with M-W and starts with M-E $0371,
+on a mounted D64, D71 or D81 image. Other images and the FAT file system
+answer error 79 at start. Bytes use the ULoad Model 3 protocol. ATN low or a
+key press ends the loader.
+
+Commands (replies: $81 not found, $FF read error, $80 unknown command):
+
+  1 len name  load: $00, then count and data per sector, then $00
+  2 len name  save over the file in place, nothing is allocated, $81 if the
+              image is read-only
+  3 t s len   $00 and len bytes of the sector (0 = 256)
+  4           as 3 for the next sector of the last sector read
+  5 track     count (20, D81 39), then track and sector links of the sectors
+              count to 0, zeros beyond the end of the track
+
+A name is 16 bytes padded with $A0, matched against closed unlocked PRG
+entries of the raw directory (D64/D71 18/1, D81 40/3). "$" streams the
+directory.
+
+Detection: M-W CRC $2a3f of the common drive code ($0300..$048B), M-E $0371.
+The CRC changes with that code. An XR ROM image answers the M-R probes at
+$8000 and above instead, so it has to match the image type.
