@@ -1,5 +1,5 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2022  Ingo Korb <ingo@akana.de>
+   Copyright (C) 2007-2026  Ingo Korb <ingo@akana.de>
 
    Inspired by MMC2IEC by Lars Pontoppidan et al.
 
@@ -51,7 +51,7 @@
  * @opendir     : open a directory
  * @readdir     : read an entry from a directory
  * @mkdir       : create a directory
- * @chdir       : change current directory
+ * @chdir       : change current directory, a NULL dirent moves one level up
  * @rename      : rename a file
  *
  * This structure holds function pointers for the various

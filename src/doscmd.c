@@ -1,5 +1,5 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2022  Ingo Korb <ingo@akana.de>
+   Copyright (C) 2007-2026  Ingo Korb <ingo@akana.de>
 
    Inspired by MMC2IEC by Lars Pontoppidan et al.
 
@@ -799,12 +799,22 @@ void do_chdir(uint8_t *parsestr) {
   /* clear '*' file */
   previous_file_dirent.name[0] = 0;
 
-  if (ustrlen(name) != 0) {
+  /* CMD drives change to the root directory when the argument is a single slash */
+  if ((name[0] == '/' && !name[1]) ||
+      (!name[0] && parsestr[0] == '/' && !parsestr[1])) {
+    dent.name[0] = 0;
+    if (chdir(&path, &dent))
+      return;
+
+    update_current_dir(&path);
+    return;
+  }
+
+  if (*name) {
     /* Path component after the : */
-    if (name[0] == '_') {
-      /* Going up a level */
-      ustrcpy(dent.name, name);
-      if (chdir(&path,&dent))
+    if (name[0] == '_' && !name[1]) {
+      /* Going up a level - signalled by a NULL dirent */
+      if (chdir(&path, NULL))
         return;
     } else {
       /* A directory name - try to match it */
@@ -1079,6 +1089,10 @@ static void parse_copy(void) {
         open_rel(&dstpath, &dent, dstbuf, srcbuf->recordlen, 1);
       else
         open_write(&dstpath, &dent, savedtype, dstbuf, 0);
+
+      if (current_error != 0) {
+        goto cleanup;
+      }
     }
 
     while (1) {
@@ -1807,7 +1821,8 @@ static void parse_scratch(void) {
   count = 0;
   /* Loop over all file names */
   while (filename != NULL) {
-    parse_path(filename, &path, &name, 0);
+    if (parse_path(filename, &path, &name, 0))
+      return;
 
     if (opendir(&matchdh, &path))
       return;
