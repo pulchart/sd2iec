@@ -85,6 +85,7 @@ typedef struct {
 /* block delays as hacks to make specific releases work */
 static const PROGMEM file_quirks_t file_quirks[] = {
   { 0xebd1,  40 }, // mojo / 26th job on side 4 (CR at 0x19/0x06)
+  { 0xd6aa,  10 }, // slits / 3rd job on side 2 (CR at 0x04/0x00)
 
   { 0, 0 } // end marker
 };
