@@ -528,8 +528,23 @@ static bool is_valid_fat_char(const uint8_t c) {
  * This function checks if @name is a valid name for a FAT
  * file. Returns true if it is, false if not.
  */
+static bool is_reserved_fat_name(const uint8_t *name) {
+  uint8_t buf[5];
+  uint8_t len;
+
+  /* upper-case copy of the first five characters */
+  for (len = 0; len < sizeof(buf) && name[len]; len++)
+    buf[len] = toupper(name[len]);
+
+  return is_reserved_name(buf, len);
+}
+
 static bool is_valid_fat_name(const uint8_t *name) {
   const uint8_t *ptr = name;
+
+  /* DOS device names are no usable file names */
+  if (is_reserved_fat_name(name))
+    return false;
 
   /* check all characters for validity */
   while (*ptr) {
@@ -606,7 +621,9 @@ static uint8_t* build_name(uint8_t *name, uint8_t type, uint8_t how) {
        !is_valid_fat_name(name))) {
 
       uint8_t *x00ext = NULL;
+      uint8_t *start = name;
       uint8_t len = 0;
+      bool reserved = is_reserved_fat_name(name);
 
       /* Append .[PSUR]00 suffix to the file name */
       while (*name) {
@@ -625,6 +642,10 @@ static uint8_t* build_name(uint8_t *name, uint8_t type, uint8_t how) {
       x00ext = name;
       *name++ = '0';
       *name   = 0;
+
+      /* the x00 name must not be a device name either */
+      if (reserved)
+        *start = '_';
 
       return x00ext;
   }
