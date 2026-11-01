@@ -70,7 +70,7 @@ FAT has no file type and does not take every C64 name. `XEn` selects how a file 
 
 An x00 file keeps the type and the C64 name in a header. With `XE+` the directory takes the type from a `.SEQ`, `.USR`, `.REL` or `.PRG` extension and hides it, modes 3 to 5 turn `XE+` on. Without it every file with another extension, or without one, lists as PRG.
 
-In modes 0 to 4 a name with a character other than letters, digits, space and `! # $ % & ' ( ) - .` is stored as x00, whatever the mode says. The file name is the first 8 characters with `_` for every character that is not accepted, the C64 name is in the header. `A/B` as PRG becomes `A_B.P00`.
+In modes 0 to 4 a name with a character other than letters, digits, space and `! # $ % & ' ( ) - .` is stored as x00, whatever the mode says. The file name has `_` for every character that is not accepted, the C64 name is in the header. `A/B` as PRG becomes `A_B.P00`.
 
 Mode 5 writes these characters as the PETSCII code in hex between braces: codes below 32 and from 96 up, `: / \ * " < > ?`, a dot at the start and a dot or space at the end. Following characters of this kind share one pair of braces.
 
