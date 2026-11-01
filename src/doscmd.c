@@ -2522,6 +2522,27 @@ static void parse_xcommand(void) {
         globalflags |= CHECK_TYPE;
       else if (str[1] == '-')
         globalflags &= (uint8_t)~CHECK_TYPE;
+    } else if (*str == 'B') {
+#ifdef CONFIG_XEB
+      /* XEB+/XEB-: read rule, XEB0/XEB1: write rule (not locked by XEL) */
+      str++;
+      if (*str == '+') {
+        brace_mode |= XEB_READ;
+      } else if (*str == '-') {
+        brace_mode &= (uint8_t)~XEB_READ;
+      } else {
+        num = parse_number(&str);
+        if (num > 1) {
+          set_error(ERROR_SYNTAX_UNKNOWN);
+          break;
+        }
+        brace_mode = (brace_mode & (uint8_t)~XEB_WRITE_MASK) | (num << XEB_WRITE_SHIFT);
+        if (num)
+          brace_mode |= XEB_READ;
+      }
+#else
+      set_error(ERROR_SYNTAX_UNKNOWN);
+#endif
     } else if (file_extension_lock) {
       /* Extension settings are locked, ignore */
     } else if (*str == '+') {

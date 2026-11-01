@@ -65,6 +65,9 @@ typedef enum { EXT_UNKNOWN, EXT_IS_X00, EXT_IS_TYPE } exttype_t;
 
 uint8_t file_extension_mode;
 uint8_t file_extension_lock;
+#ifdef CONFIG_XEB
+uint8_t brace_mode;
+#endif
 
 /* ------------------------------------------------------------------------- */
 /*  Utility functions                                                        */
@@ -375,6 +378,12 @@ static bool ends_with_type_ext(const uint8_t *name, uint8_t len) {
 static uint8_t encode_xe5(const uint8_t *pet) {
   uint8_t n = ustrlen(pet);
   uint8_t i = 0;
+#ifdef CONFIG_XEB
+  /* XEB1 puts an empty {} in front of a name without escapes, keep room */
+  const uint8_t max = XE5_NAME_MAX - ((brace_mode & XEB_WRITE_MASK) ? 2 : 0);
+#else
+  const uint8_t max = XE5_NAME_MAX;
+#endif
   uint8_t k, p;
   bool esc = false;
 
@@ -393,7 +402,7 @@ static uint8_t encode_xe5(const uint8_t *pet) {
         p == '"' || p == '<' || p == '>' || p == '?' ||
         (k == 0 && p == '.') || (k == n-1 && (p == '.' || p == ' '))) {
       /* leave room for the closing brace */
-      if (i + (esc ? 3 : 4) > XE5_NAME_MAX)
+      if (i + (esc ? 3 : 4) > max)
         break;
 
       if (!esc) {
@@ -403,7 +412,7 @@ static uint8_t encode_xe5(const uint8_t *pet) {
       xe5_name[i++] = bin2hex(p >> 4);
       xe5_name[i++] = bin2hex(p & 15);
     } else {
-      if (i + (esc ? 2 : 1) > XE5_NAME_MAX)
+      if (i + (esc ? 2 : 1) > max)
         break;
 
       if (esc) {
@@ -418,6 +427,17 @@ static uint8_t encode_xe5(const uint8_t *pet) {
     xe5_name[i++] = '}';
 
   xe5_name[i] = 0;
+
+#ifdef CONFIG_XEB
+  /* XEB1: every name has a {, so XEB+ recognizes it as an xe5 name */
+  if (n && (brace_mode & XEB_WRITE_MASK) && !ustrchr(xe5_name, '{')) {
+    memmove(xe5_name + 2, xe5_name, i + 1);
+    xe5_name[0] = '{';
+    xe5_name[1] = '}';
+    i += 2;
+  }
+#endif
+
   return n ? i : 0;
 }
 
@@ -1229,9 +1249,19 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   ustrcpy(dent->pvt.fat.realname, finfo.fname);
 
 #ifdef CONFIG_XE5
+  /* XEB+: in xe0..xe4 a name with a { is an xe5 name. A classic name   */
+  /* can not have one, { is no valid FAT character for it.              */
+#ifdef CONFIG_XEB
+  uint8_t braced = file_extension_mode != 5 && (brace_mode & XEB_READ) &&
+                   ustrchr(finfo.lfn[0] ? finfo.lfn : finfo.fname, '{');
+#else
+  const uint8_t braced = 0;
+#endif
+  uint8_t xe5name = file_extension_mode == 5 || braced;
+
   /* Mode 5 accepts all long names that fit into the buffer */
   if (!finfo.lfn[0] ||
-      ustrlen(finfo.lfn) > (file_extension_mode == 5 ? _MAX_LFN_LENGTH : CBM_NAME_LENGTH+4)) {
+      ustrlen(finfo.lfn) > (xe5name ? _MAX_LFN_LENGTH : CBM_NAME_LENGTH+4)) {
 #else
   if (!finfo.lfn[0] || ustrlen(finfo.lfn) > CBM_NAME_LENGTH+4) {
 #endif
@@ -1241,7 +1271,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   }
 
 #ifdef CONFIG_XE5
-  if (file_extension_mode == 5) {
+  if (xe5name) {
     /* Find the type extension before the decoding drops a trailing "{}" */
     uint8_t len = ustrlen(nameptr);
 
@@ -1273,7 +1303,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
 
 #ifdef CONFIG_XE5
     /* Mode 5 takes the type from the stored long name, the 8.3 name keeps only three characters */
-    if (file_extension_mode == 5 && ext != EXT_IS_X00) {
+    if (xe5name && ext != EXT_IS_X00) {
       ext = EXT_UNKNOWN;
       if (rawtype) {
         ext = EXT_IS_TYPE;
@@ -1320,7 +1350,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
       finfo.fsize -= P00_HEADER_SIZE;
       dent->opstype = OPSTYPE_FAT_X00;
 
-    } else if (ext == EXT_IS_TYPE && (globalflags & EXTENSION_HIDING)) {
+    } else if (ext == EXT_IS_TYPE && ((globalflags & EXTENSION_HIDING) || braced)) {
       /* Type extension */
       typechar = *ptr;
       uint8_t i = ustrlen(nameptr)-4;
@@ -1364,7 +1394,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
     }
 
 #ifdef CONFIG_XE5
-    if (file_extension_mode == 5) {
+    if (xe5name) {
       /* Trailing shifted spaces are padding, same as in d64 */
       uint8_t len = ustrlen(dent->name);
       while (len && dent->name[len-1] == 0xa0)
@@ -1372,7 +1402,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
     }
 
     /* A decoded name has no tilde, only the 8.3 name can */
-    if (file_extension_mode != 5 || nameptr == finfo.fname)
+    if (!xe5name || nameptr == finfo.fname)
 #endif
     {
       ptr = dent->name;

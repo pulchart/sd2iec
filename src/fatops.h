@@ -56,6 +56,19 @@ extern const fileops_t fatops;
 extern uint8_t file_extension_mode;
 extern uint8_t file_extension_lock;
 
+#ifdef CONFIG_XEB
+/* XEB: braces in xe5 names. The bits are those of the fileexts byte in */
+/* the EEPROM, so brace_mode is stored and read back without shifting.  */
+/*  XEB+/XEB-: in xe0..xe4 a FAT name with a { is read as an xe5 name    */
+/*  XEB0/XEB1: in xe5 (and for the xe5 form of a CVT name) an empty {}   */
+/*             is put in front of every name that has no { otherwise,   */
+/*             so XEB+ recognizes it. XEB1 sets XEB+ as well.          */
+extern uint8_t brace_mode;
+#define XEB_WRITE_MASK (1<<4)  /* XEB0/XEB1 */
+#define XEB_WRITE_SHIFT 4
+#define XEB_READ       (1<<5)  /* bit 6 is XET, bit 7 XEL */
+#endif
+
 /* Generic helpers */
 uint8_t image_unmount(uint8_t part);
 uint8_t image_chdir(path_t *path, cbmdirent_t *dent);
