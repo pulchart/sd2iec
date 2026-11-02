@@ -68,6 +68,8 @@ Supported commands:
   do anything. sd2iec marks hidden files with an H after the lock mark,
   i.e. "PRG<H" or "PRG H".
 
+  Directories whose name starts with a dot are listed.
+
   CMD-style "short" and "long" directory listings with timestamps are supported
   ("$=T"), including timestamp filters. Please read a CMD manual for the syntax
   until this file is updated.
@@ -291,6 +293,9 @@ Supported commands:
   If an image file with that name already exists, it is formatted, like
   if it was mounted.
 
+  A name that contains *, ?, = or " is refused with 30,SYNTAX ERROR, as
+  the 1541, 1571 and 1581 do.
+
   If the name doesn't end in a known D64 image extension, it defaults to
   ".D64". As a precaution and exception to the rules above, an existing
   image will not be formatted if the filename results from adding the
@@ -385,7 +390,8 @@ Supported commands:
   (skipping the bootloader if installed). <Shift-J> is character code 202.
 
 - X: Extended commands. If you use JiffyDOS, you can send them by using
-  @"X..." - without quotes you'll just receive an error.
+  @"X..." - without quotes JiffyDOS takes them as its own @X command (set
+  destination drive) and the drive receives nothing.
 
   - XEnum    Sets the "file extension mode". This setting controls if
              files on FAT are written with an x00 header and extension or not.
@@ -493,9 +499,15 @@ Supported commands:
              drive configuration status information.
 
   - X        X without any following characters reports the current state
-             of all extended parameters via the error channel, similiar
-             to DolphinDOS. Example result: "03,J-:C152:E01+:B+:*+,08,00"
-             The track indicates the current device address.
+             of all extended parameters via the error channel. Example
+             result: "03,E01-:*+:ET-:I00:N-:H-:O45:R,08,00"
+             The fields come in this fixed order and end with a colon:
+             E extension mode and hiding flag ("<" instead of the colon if
+             locked by XEL), * 1581 style matching, ET strict file type,
+             I image display, N fast format, H hidden flag in images,
+             O OLED dim time (OLED builds only), R file name set by XR.
+             Flags are + or -, numbers have two digits. The track
+             indicates the current device address.
 
   - XS:name  Set up a swap list - see "Changing Disk Images" below.
     XS       Disable swap list
@@ -512,7 +524,9 @@ Supported commands:
              the hardware.
 
              The stored configuration include the extension mode,
-             drive configuration and the current device address.
+             drive configuration and the current device address. On
+             boards with an on-board display it also includes the bus,
+             the menu setting, brightness and contrast.
              If you have changed the device address by software,
              sd2iec will power up with that address unless
              you have changed the device address jumpers (if available) to
@@ -618,6 +632,7 @@ on the PC or their PETSCII equivalents on the Commodore you may
 get strange characters on the other system because the LFN use
 unicode characters on disk, but sd2iec parses only the low byte
 of each character in the name.
+The FAT code is FatFs R0.16, long names are converted as Latin-1.
 
 EEPROM file system
 ==================
@@ -956,7 +971,8 @@ x00 files are recognized by checking both the extension of the file
 Disk Images:
 ============
 Disk images are recognized by their file extension (.D64, .D41, .D71, .D81,
-.DNP) and their file size.
+.D80, .D82, .DNP) and their file size. D80 and D82 are the images of the
+8050 and 8250 drives.
 
 D41 images with more than 35 tracks can be mounted, if the additional
 data is a multiple of 17 sectors and within a maximum of 42 tracks total.
@@ -1211,6 +1227,18 @@ Compilation notes:
 ==================
 sd2iec requires avr-libc version 1.6.x.
 
+petSD+ and cbmSD-mini:
+======================
+The boards petSD+ and cbmSD-mini (configs petSD+ and cbmSDmini) have an
+ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the
+IEEE-488 bus. The bus is selected at runtime in the menu of the on-board
+display, which also sets the device address, the disk image and the
+settings. All software fastloaders are built except the burst and
+parallel ones, which need an SRQ interrupt and a parallel port these
+boards do not have. A long key press leaves a running loader. The
+fastloaders work on the IEC bus only, on the IEEE-488 bus the drive code
+is ignored with 98,UNKNOWN DRIVECODE.
+
 LCD display
 ===========
 If built with CONFIG_LCD_DISPLAY=y sd2iec drives a parallel HD44780 or
@@ -1220,8 +1248,21 @@ line shows the name of the file being loaded (L:) or saved (S:), the
 error channel message (E:) or READY:<device address> when idle. Names
 longer than the display scroll while the bus is idle.
 
+Statuses below 20 show on the second line with the prefix I: for about
+5 seconds, then READY: returns. S shows I:SCRATCHED nn (files scratched),
+CP shows I:PARTITION nn, the X commands that answer with their settings
+and X? show the text, a long text scrolls twice. A new text on the second
+line (L:, S:, error) or closing the last channel brings READY: sooner.
+00, OK is not shown, READY: stays.
+
 Configurations: larsp-lcd (MMC2IEC) and evo2-lcd (evo2). Display pins
 for each board are listed in doc/lcd-pinout.txt.
+
+WS0010 OLED displays (for example the Winstar WEH001602A) are supported
+with the configurations larsp-oled and evo2-oled. The OLED dims after 45
+seconds without a change, XOnum sets the time. A dimmed OLED lights up
+when the content changes, the first press of NEXT, PREV or HOME only
+wakes it.
 
 sd2iec is set up to be compiled in multiple configurations, controlled by
 configuration files. By default the Makefile looks for a file named
