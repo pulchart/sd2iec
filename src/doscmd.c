@@ -332,6 +332,10 @@ static const PROGMEM struct fastloader_crc_s fl_crc_table[] = {
 #ifdef CONFIG_LOADER_ULOAD4
   { 0x2a3f, FL_ULOAD4,     RXTX_NONE          }, // CRC of the U4 common drive code ($0300..$048b)
 #endif
+#ifdef CONFIG_LOADER_GMA
+  { 0x8c28, FL_GMA86,      RXTX_NONE          }, // CRC of the GMA86 PAL drive code ($0300..$03df), track and sector as $ff
+  { 0x6e22, FL_GMA85,      RXTX_NONE          }, // CRC of the GMA85 NTSC drive code ($0700..$07bf)
+#endif
   { 0, FL_NONE, 0 }, // end marker
 };
 
@@ -506,6 +510,10 @@ static const PROGMEM struct fastloader_handler_s fl_handler_table[] = {
 #endif
 #ifdef CONFIG_LOADER_ULOAD4
   { 0x0371, FL_ULOAD4,     load_uload4, 0 },
+#endif
+#ifdef CONFIG_LOADER_GMA
+  { 0x03b2, FL_GMA86,      load_gma, 0 },
+  { 0x079c, FL_GMA85,      load_gma, 1 },
 #endif
 
   { 0, FL_NONE, NULL, 0 }, // end marker
@@ -1629,6 +1637,19 @@ static void handle_memwrite(void) {
   }
 
   previous_loader = FL_NONE;
+
+#ifdef CONFIG_LOADER_GMA
+  /* The GMA86 loader patches track and sector of the file into its drive */
+  /* code ($03b6, $03ba), so keep them and hide them from the CRC. The    */
+  /* CRC of the five blocks before ($0300..$039f) tells it from others.   */
+  if (address == 0x03a0 && length == 0x20 && command_length >= 6 + 0x20 &&
+      datacrc == 0xfb02) {
+    gma_track  = command_buffer[6 + 0x16];
+    gma_sector = command_buffer[6 + 0x1a];
+    command_buffer[6 + 0x16] = 0xff;
+    command_buffer[6 + 0x1a] = 0xff;
+  }
+#endif
 
   for (i=0;i<command_buffer[5];i++) {
     datacrc = crc16_update(datacrc, command_buffer[i+6]);

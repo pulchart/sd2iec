@@ -1,0 +1,48 @@
+GMA fast loader of Elite (C64)
+=============================
+
+The disk versions of Elite offer a fast loader ("DO YOU WANT TO USE THE FAST
+LOADER? (Y/N)"). It uploads 1541 code with M-W and starts it with M-E. The
+source is in elite-gma1.asm of
+https://github.com/ataribaby42/elite-source-code-commodore-64
+
+Enabled with CONFIG_LOADER_GMA, handled in fl-gma.c.
+
+
+Variants
+--------
+
+GMA86 PAL: seven M-W blocks of 32 bytes to $0300-$03df, M-E $03b2. The track
+and sector of the file are patched into the code at $03b6 and $03ba, so the
+CRC differs per file. doscmd.c keeps both values and calculates the CRC with
+$ff in their place (CRC $8c28). It does so only after the five blocks before
+that one ($0300-$039f, CRC $fb02). The loader does not open the file, it needs
+a mounted disk image and reads the sector chain from the given sector.
+
+GMA85 NTSC: the file is opened as usual, then six M-W blocks to $0700-$07bf
+(CRC $6e22) and M-E $079c. The data comes from the open file.
+
+
+Protocol
+--------
+
+Every byte is one handshake:
+
+1. The C64 pulls ATN low and waits for DATA to be released.
+2. The drive releases DATA and CLK and waits for ATN to be released.
+3. 20.5 us later the drive sends four bit pairs, one every 8 us (PAL) or
+   10 us (NTSC). A pair is CLK and DATA, a set bit pulls the line low. The
+   pairs are bits 7+5, 6+4, 3+1 and 2+0, in this order.
+4. The drive pulls DATA and CLK low and waits for the next ATN.
+
+The C64 reads $DD00 24.4 us (PAL) or 25.4 us (NTSC) after it released ATN,
+then every 8.1 us (PAL) or 9.8 us (NTSC). The timing is the one of the 1541
+code (BIT $1800 / BMI loop, jitter of up to 7 cycles).
+
+GMA86 PAL stream: the data of the file starting at the load address, a byte
+of 1 is sent twice, the end is 1 followed by 2.
+
+GMA85 NTSC stream: the sectors of the file including the link bytes, 256
+bytes per sector. A first byte of 0 marks the last sector, the second byte is
+the index of its last byte + 1. A first byte of $ff is an error. The link
+bytes of a sector that is not the last are ignored by the C64.
