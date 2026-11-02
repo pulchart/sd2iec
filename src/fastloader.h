@@ -107,6 +107,8 @@ typedef enum {
   FL_N0S_IFFL_SCAN,
   FL_N0S_IFFL_LOAD,
   FL_ULOAD4,
+  FL_GMA86,
+  FL_GMA85,
 } fastloaderid_t;
 
 typedef struct {
@@ -119,6 +121,8 @@ extern volatile uint8_t fl_track;
 extern volatile uint8_t fl_sector;
 extern uint8_t (*fast_send_byte)(uint8_t byte);
 extern uint8_t (*fast_get_byte)(void);
+extern uint8_t gma_track;
+extern uint8_t gma_sector;
 
 uint8_t check_keys(void);
 bool bus_sleep(uint8_t);
@@ -156,6 +160,7 @@ bool load_wingsoffury(uint8_t);
 bool scan_n0s_iffl(uint8_t);
 bool load_n0s_iffl(uint8_t);
 bool load_uload4(uint8_t);
+bool load_gma(uint8_t ntsc);
 bool load_booze(uint8_t);
 bool load_spindle(uint8_t);
 bool load_bitfire(uint8_t);

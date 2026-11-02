@@ -1180,7 +1180,7 @@ uload3_bitloop:
         ret
 #endif
 
-#if defined CONFIG_LOADER_EPYXCART || defined CONFIG_LOADER_ULTRABOOT
+#if defined CONFIG_LOADER_EPYXCART || defined CONFIG_LOADER_ULTRABOOT || defined CONFIG_LOADER_GMA
         ;; send bits 7 and 5 of r0 to clock/data
         ;; masked contents of IEC_OUTPUT expected in r19
         ;; 8 (or 9 for 22 bit PC MCUs) cycles from rcall to out, 4 (or 5) to return
@@ -1249,6 +1249,79 @@ epyxcart_send_byte:
 epyxcart_atnabort:
         ldi     r24, 1
         ret
+
+#endif
+
+#ifdef CONFIG_LOADER_GMA
+        ;;
+        ;; Send a byte using the protocol of the Elite GMA fast loader
+        ;;
+        ;; Called with ATN low (the C64 waits for DATA to be released) and
+        ;; the byte in r24. DATA and CLK are released, the byte is sent as
+        ;; four bit pairs (bit order of Epyx Fastload) after ATN went high,
+        ;; then DATA and CLK are pulled low until the next call.
+        ;;
+        ;; The first pair starts 20.5 us after ATN is released, the pairs
+        ;; follow every 8 us (PAL host) or 10 us (NTSC host), centered on
+        ;; the reads of the C64.
+        .macro gma_send_byte_body space:req
+        cli
+
+        ;; prepare data
+        in      r19, _SFR_IO_ADDR(IEC_OUTPUT)
+#ifdef IEC_OUTPUTS_INVERTED
+        andi    r19, ~(IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
+#else
+        ori     r19, (IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
+        com     r24             ; port bits are line levels, send inverted
+#endif
+
+        ;; DATA and CLK high, the C64 may continue
+        xsbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
+        xsbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
+
+        ;; wait for ATN high
+1:      sbis    _SFR_IO_ADDR(IEC_INPUT), IEC_PIN_ATN
+        rjmp    1b
+
+        mov     r0, r24                                         ; 1
+
+        ;; first bitpair
+        delay_05us 41, -11-RCALL_OFFSET
+        rcall   epyx_bitpair            ; 8+4 or 9+5 - bits 7 and 5
+
+        ;; second bitpair
+        lsl     r0                                              ; 1
+        delay_us \space, -13-RET_OFFSET-RCALL_OFFSET
+        rcall   epyx_bitpair            ; 8+4 or 9+5 - bits 6 and 4
+
+        ;; third bitpair
+        swap    r24                                             ; 1
+        mov     r0, r24                                         ; 1
+        delay_us \space, -14-RET_OFFSET-RCALL_OFFSET
+        rcall   epyx_bitpair            ; 8+4 or 9+5 - bits 3 and 1
+
+        ;; last bitpair
+        lsl     r0                                              ; 1
+        delay_us \space, -13-RET_OFFSET-RCALL_OFFSET
+        rcall   epyx_bitpair            ; 8+4 or 9+5 - bits 2 and 0
+
+        ;; busy, the C64 waits for DATA
+        delay_us \space, -5-RET_OFFSET
+        xcbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
+        xcbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
+
+        sei
+        ret
+        .endm
+
+        .global gma_send_byte_pal
+gma_send_byte_pal:
+        gma_send_byte_body 8
+
+        .global gma_send_byte_ntsc
+gma_send_byte_ntsc:
+        gma_send_byte_body 10
 
 #endif
 

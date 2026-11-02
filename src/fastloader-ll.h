@@ -47,6 +47,9 @@ void uload3_send_byte(uint8_t byte);
 
 uint8_t epyxcart_send_byte(uint8_t byte);
 
+void gma_send_byte_pal(uint8_t byte);
+void gma_send_byte_ntsc(uint8_t byte);
+
 uint8_t geos_get_byte_1mhz(void);
 uint8_t geos_get_byte_2mhz(void);
 uint8_t geos_send_byte_1mhz(uint8_t byte);
