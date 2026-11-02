@@ -1107,7 +1107,10 @@ void file_open(uint8_t secondary) {
         }
       } else {
         /* Write existing file without replacement: Raise error */
-        set_error(ERROR_FILE_EXISTS);
+        if (ustrchr(fname, '*') || ustrchr(fname, '?'))
+          set_error(33);
+        else
+          set_error(ERROR_FILE_EXISTS);
         return;
       }
     } else {
