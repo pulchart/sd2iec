@@ -1749,6 +1749,11 @@ static void parse_new(void) {
     return;
   }
 
+  if (check_invalid_name(name)) {
+    set_error(ERROR_SYNTAX_UNKNOWN);
+    return;
+  }
+
   format(&path, name, id);
 }
 
