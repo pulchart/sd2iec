@@ -59,6 +59,7 @@ uint8_t parse_path(uint8_t *in, path_t *path, uint8_t **name, uint8_t parse_alwa
 
 /* Check for invalid characters in a name */
 uint8_t check_invalid_name(uint8_t *name);
+uint8_t has_wildcard(const uint8_t *name);
 uint8_t names_differ_in_case(uint8_t *a, uint8_t *b);
 
 /* Parse a decimal number at str and return a pointer to the following char */

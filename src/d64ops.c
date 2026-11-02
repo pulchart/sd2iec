@@ -1952,7 +1952,7 @@ static void d64_mkdir(path_t *path, uint8_t *dirname) {
     return;
   }
 
-  if (ustrchr(dirname, '*') || ustrchr(dirname, '?')) {
+  if (has_wildcard(dirname)) {
     set_error(ERROR_SYNTAX_JOKER);
     return;
   }

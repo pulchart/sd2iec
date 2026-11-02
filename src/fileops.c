@@ -1100,14 +1100,14 @@ void file_open(uint8_t secondary) {
         if (dent.opstype == OPSTYPE_FAT || dent.opstype == OPSTYPE_FAT_X00)
           dent.pvt.fat.realname[0] = 0;
 #endif
-        if (!ustrchr(fname, '*') && !ustrchr(fname, '?') && (*fname != 160))
+        if (!has_wildcard(fname) && (*fname != 160))
         {
            memset(&dent, 0, sizeof(dent));
            ustrncpy(dent.name, fname, CBM_NAME_LENGTH);
         }
       } else {
         /* Write existing file without replacement: Raise error */
-        if (ustrchr(fname, '*') || ustrchr(fname, '?'))
+        if (has_wildcard(fname))
           set_error(33);
         else
           set_error(ERROR_FILE_EXISTS);
@@ -1116,7 +1116,7 @@ void file_open(uint8_t secondary) {
     } else {
       /* Normal write or non-existing rewrite */
       /* Doesn't exist: Copy name to dent */
-      if (ustrchr(fname, '*') || ustrchr(fname, '?'))
+      if (has_wildcard(fname))
       {
          if (command_buffer[0] == '@')
             set_error(64);

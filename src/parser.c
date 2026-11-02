@@ -82,6 +82,21 @@ uint8_t check_invalid_name(uint8_t *name) {
   return 0;
 }
 
+/**
+ * has_wildcard - check a file name for the pattern characters * and ?
+ * @name: pointer to the file name
+ *
+ * Returns 1 if the name contains a wildcard, 0 if not.
+ */
+uint8_t has_wildcard(const uint8_t *name) {
+  while (*name) {
+    if (*name == '*' || *name == '?')
+      return 1;
+    name++;
+  }
+  return 0;
+}
+
 /* Convert a PETSCII character to lower-case */
 static uint8_t tolower_pet(uint8_t c) {
   if (c >= 0x61 && c <= 0x7a)
