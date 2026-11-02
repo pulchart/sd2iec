@@ -21,6 +21,7 @@
 #include "display_lcd.h"
 #include <avr/pgmspace.h>
 
+#include "errormsg.h"
 #include "fatops.h"
 #include "iec-bus.h"
 #include "parser.h"
@@ -82,6 +83,10 @@ static struct {
 	char    txt[SCROLL_MAX + 1];
 } scroll[2];
 
+/* A status below 20 is on line 2 until status_end, then READY returns */
+static uint8_t status_shown;
+static tick_t  status_end;
+
 
 static const char  mychars[64] PROGMEM = {
 			0x00, 0x01, 0x07, 0x0F, 0x0F, 0x1E, 0x1C, 0x1C,
@@ -106,6 +111,9 @@ static const char eee2[16] PROGMEM  = {
 
 void lcd_clrline(int line)
 {
+	if (line == 1)
+		status_shown = 0;
+
 	if (line < 2)
 		scroll[line].len = 0;
 
@@ -203,6 +211,45 @@ void lcd_ready(uint8_t dev_addr)
 	}
 }
 
+/* Append a decimal number to a string, returns the end */
+static char *lcd_number(char *p, uint8_t n)
+{
+	if (n >= 100)
+		*p++ = '0' + n / 100;
+	if (n >= 10)
+		*p++ = '0' + n / 10 % 10;
+	*p++ = '0' + n % 10;
+	return p;
+}
+
+/* Show a status below 20 on line 2 for a while, value is the file or partition number */
+void lcd_status(uint8_t num, uint8_t value, const uint8_t *msg)
+{
+	char buf[SCROLL_MAX + 1];
+	char *p = buf;
+	uint8_t len;
+
+	if (lcd_controller_type() == 0 || hold)
+		return;
+
+	if (num == ERROR_SCRATCHED || num == ERROR_PARTITION_SELECTED) {
+		strcpy_P(p, num == ERROR_SCRATCHED ? PSTR("SCRATCHED ") : PSTR("PARTITION "));
+		p = lcd_number(p + 10, value);
+	} else {
+		/* skip the number and the comma */
+		for (msg += 3; p < buf + SCROLL_MAX && *msg && *msg != 13; msg++)
+			*p++ = *msg;
+	}
+	*p = 0;
+
+	lcd_show_name(1, 'I', buf);
+	len = p - buf;
+	status_end = getticks() + (len > SCROLL_WIDTH
+	                           ? SCROLL_START + 2 * (tick_t)(len + SCROLL_GAP) * SCROLL_STEP
+	                           : MS_TO_TICKS(5000));
+	status_shown = 1;
+}
+
 void lcd_show_name(uint8_t line, char tag, const char *name)
 {
 	uint8_t len = strlen(name);
@@ -285,6 +332,9 @@ void lcd_scroll_poll(void)
 		return;
 	}
 #endif
+
+	if (status_shown && time_after(getticks(), status_end))
+		lcd_ready(device_address);
 
 	for (l = 0; l < 2; l++) {
 		uint8_t len = scroll[l].len;

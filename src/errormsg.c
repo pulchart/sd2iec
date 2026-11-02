@@ -279,7 +279,11 @@ void set_error_ts(uint8_t errornum, uint8_t track, uint8_t sector) {
   } else {
     led_state &= (uint8_t)~LED_ERROR;
     set_error_led(0);
-    DS_READY();
+    if (errornum == ERROR_SCRATCHED || errornum == ERROR_PARTITION_SELECTED ||
+        errornum == ERROR_STATUS || errornum == ERROR_LONGVERSION)
+      DS_STATUS(errornum, track, error_buffer);
+    else
+      DS_READY();
   }
   buffers[ERRORBUFFER_IDX].lastused = msg - error_buffer;
 
