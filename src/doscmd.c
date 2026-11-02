@@ -1057,7 +1057,7 @@ static void parse_block(void) {
 /* ---------- */
 static void parse_copy(void) {
   path_t srcpath,dstpath;
-  uint8_t *srcname,*dstname,*tmp;
+  uint8_t *srcname,*dstname,*tmp,*tok,*srcend;
   uint8_t savedtype;
   int8_t res;
   buffer_t *srcbuf,*dstbuf;
@@ -1100,6 +1100,27 @@ static void parse_copy(void) {
     return;
 
   set_error(ERROR_OK);
+
+  /* All sources must exist before the destination is created */
+  res = 0;
+  srcend = srcname + ustrlen(srcname);
+  tok = ustr1tok(srcname,',',&tmp);
+  while (tok != NULL) {
+    if (parse_path(tok, &srcpath, &tok, 0) ||
+        first_match(&srcpath, tok, FLAG_HIDDEN, &dent) != 0) {
+      res = 1;
+      break;
+    }
+    tok = ustr1tok(NULL,',',&tmp);
+  }
+
+  /* ustr1tok replaced the commas */
+  for (tok = srcname; tok < srcend; tok++)
+    if (*tok == 0)
+      *tok = ',';
+
+  if (res)
+    return;
 
   srcbuf = alloc_buffer();
   dstbuf = alloc_buffer();
