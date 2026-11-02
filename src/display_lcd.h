@@ -34,6 +34,7 @@
 #define DS_BOOT()     lcd_boot()
 #define DS_READY()    lcd_ready(device_address)
 #define DS_ERROR(A)   lcd_error(A)
+#define DS_STATUS(N,V,M) lcd_status(N,V,M)
 #define DS_LOAD(A)    lcd_show_name(1, 'L', (const char *)(A))
 #define DS_SAVE(A)    lcd_show_name(1, 'S', (const char *)(A))
 #define DS_CD(A)      lcd_path((const char *)(A))
@@ -51,6 +52,7 @@ void lcd_boot(void);
 void lcd_clrline(int line);
 void lcd_ready(uint8_t device);
 void lcd_error(const uint8_t *msg);
+void lcd_status(uint8_t num, uint8_t value, const uint8_t *msg);
 void lcd_path(const char *path);
 void lcd_cdir(path_t *path);
 void lcd_hold(uint8_t on);
@@ -67,6 +69,7 @@ extern uint8_t oled_dim_time;
 #define DS_BOOT()     do { } while (0)
 #define DS_READY()    do { } while (0)
 #define DS_ERROR(A)   do { } while (0)
+#define DS_STATUS(N,V,M) do { } while (0)
 #define DS_LOAD(A)    do { } while (0)
 #define DS_SAVE(A)    do { } while (0)
 #define DS_CD(A)      do { } while (0)
