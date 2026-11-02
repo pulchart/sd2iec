@@ -9,23 +9,51 @@ sd2iec firmware with support for parallel HD44780 and ST7036 character LCDs and 
 
 LCD code copied from SvOlli/sd2iec-lcd and adapted to current thierer/sd2iec, with small improvements and cleanup.
 
-## What is added
+## What's new
 
-- Support for WS0010 OLED displays: configs `larsp-oled` (MMC2IEC) and `evo2-oled` (evo2) for a module such as the Winstar WEH001602A, dimming after inactivity
-- Scrolling of names longer than the display, the long file name of a mounted image
-- Extension mode 5 (`XE5`): any PETSCII name on FAT, written as `{HH}` escapes where FAT cannot store a character. File names with more than one dot
-- Commands `A:`, `L`/`EL`/`EU`, `EH`, `R-H` and `D:` for attributes, locking and hiding of files and the header, `EL:$` locks a whole disk image
-- `XN+`/`XN-` fast format, `XET+`/`XET-` strict file type check, `XEL`/`XEU` lock of the extension settings, `XH+`/`XH-` hidden files in images
-- Partition listing filtered by image type, `$=P:*=N`
-- `N:name.dnp,nnn` creates a DNP image (CMD native partition with subdirectories) with nnn tracks, 001 to 255
-- Fixes for `COPY` errors, REL record length 13, locked files in images, read-only images, DOS device names, names with shifted spaces, one-letter DNP directories and error codes
+All together:
+
+### Display
+
+- Parallel HD44780 and ST7036 LCDs and WS0010 OLED displays, the OLED dims after inactivity, `XOn` sets the time
+- Scrolling of names and long error messages, the long file name of a mounted image, no flashing of the directory or an error when the image is changed with Next and Prev
+- Line 2 shows statuses below 20 for a few seconds with the prefix `I:`: files scratched, selected partition, answers of the X commands
+
+### Base
+
+- FatFs updated to R0.16
+
+### Boards and images
+
 - Boards `petSD+` and `cbmSD-mini` (configs `petSD+` and `cbmSDmini`) with an on-board display and menu, the bus (IEC or IEEE-488) is selected at runtime
 - D80 and D82 disk images (8050 and 8250) in all builds
-- Fastloaders on `petSD+` and `cbmSD-mini`, and the loaders of Another World, Wings of Fury (needs a 1541 ROM image set with `XR`) and Ultima IV Remastered (D64, D71, D81 images)
+- `N:name.dnp,nnn` creates a DNP image (CMD native partition with subdirectories) with nnn tracks, 001 to 255
+- Partition listing filtered by image type, `$=P:*=N`
+
+### Commands and names
+
+- Extension mode 5 (`XE5`): any PETSCII name on FAT, written as `{HH}` escapes where FAT cannot store a character. File names with more than one dot, x00 names longer than 8 characters, directories starting with a dot are listed
+- Commands `A:`, `L`/`EL`/`EU`, `EH`, `R-H` and `D:` for attributes, locking and hiding of files and the header, `EL:$` locks a whole disk image
+- `XN+`/`XN-` fast format, `XET+`/`XET-` strict file type check, `XEL`/`XEU` lock of the extension settings, `XH+`/`XH-` hidden files in images
+
+### Fastloaders
+
+- New: ULoad Model 4 (Ultima IV Remastered, D64, D71 and D81 images), Another World and Wings of Fury (need a 1541 ROM image set with `XR`)
+- ULoad Model 3 (Ultima 3 Gold): the D71 and D81 versions are detected, the display keeps scrolling while the loader waits
+- A long key press leaves a fastloader on boards with a display, `M-R $FEA0` answers as a 1581 on D81 images
+
+### Fixes
+
+- `COPY` checks all sources before it creates the target, `N` refuses `*`, `?`, `=` and `"` in a name, wildcards in new names give 33
+- REL record length 13, locked files in images, read-only images, DOS device names, names with shifted spaces, one-letter DNP directories, error codes
+- An overwrite keeps the case of the typed name, GEOS and Wheels sector jobs clear the error first
+- The software I2C no longer waits for ever for a slave that holds SCL, a device address outside 4 to 30 in the EEPROM is ignored, a build with only Hypra-Load works
 
 ## Display
 
 Line 1 shows the directory or the mounted image, line 2 the loaded or saved file, the error message or `READY:` with the device address. Names longer than 14 characters scroll, a mounted image shows its long file name.
+
+Statuses below 20 show on line 2 with the prefix `I:` for about 5 seconds, then `READY:` returns. `S` shows `I:SCRATCHED nn` (files scratched), `CP` shows `I:PARTITION nn`, the X commands that answer with their settings and `X?` show the text, a long text scrolls twice. A new text on line 2 (LOAD, SAVE, error) or closing the last channel brings `READY:` sooner. `00, OK` is not shown, `READY:` stays.
 
 | | LCD (HD44780, ST7036) | OLED (WS0010) |
 |---|---|---|
@@ -37,61 +65,61 @@ A dimmed OLED lights up on a change of content. The first press of Next, Prev or
 
 ## Commands
 
-Sent on the command channel, for example `OPEN15,8,15,"N:TEST,01":CLOSE15`, or `@"N:TEST,01"` with JiffyDOS. A command that is not listed is not supported, `README` has the details.
+Sent on the command channel, for example `OPEN15,8,15,"N:TEST,01":CLOSE15`, or `@N:TEST,01` with JiffyDOS. "Dxx image" means D64, D71, D81 and DNP.
 
 ### DOS commands
 
 | Command | Action |
 |---|---|
-| `$` | directory, `$=B` or `$=D` lists only directories, the filter `*=H` includes hidden files, `$=T` is the CMD style listing with time stamps |
-| `$=P` | partition directory with name and image type filters, `$=P:*=8` lists the D81 images, `$=P:A*=N` the NAT partitions starting with A (`=N` NAT, `=4` D41, `=7` D71, `=8` D81) |
-| `CD:name`, `CD:_` | change directory, `_` (left arrow) goes up, an image file as the last component is mounted and `CD:_` leaves it |
-| `MD:name`, `RD:name` | make or remove a directory, `MD/foo/:bar` creates `bar` in `foo`, `RD` works in the current directory only |
-| `CP`, `G-P` | change the partition, partition info |
-| `N:name,id` | format the mounted image, without an image `N:NAME.D64,ID` creates a D64, D41, D71 or D81 image (`.D64` if no extension), an id followed by `+` or `-` turns fast format on or off for this command |
-| `N:name.dnp,nnn` | create an empty DNP image with nnn tracks, 001 to 255, mount it and use `N` again to format it |
-| `S:name,name` | scratch files |
-| `R:new=old` | rename, on FAT the case of a name can be changed |
-| `C:target=source,source` | copy, several sources are appended to the target |
-| `A:R=foo`, `A:H=foo`, `A:=foo` | set read-only, hidden or no attributes of a file |
-| `L:foo`, `EL:foo`, `EU:foo` | toggle, set or clear the read-only flag, `EL:$` and `EU:$` lock and unlock a mounted image, `XL` and `XU` are the same as `EL` and `EU` |
-| `EH/:foo` | toggle the hidden flag of a file |
-| `D:name,id`, `R-H:name` | change the header name and id of a mounted image, `EH:name,id` and `XH:name,id` are the same as `D:` |
-| `P` | position in a REL file or in a regular file |
-| `U1`, `U2`, `B-R`, `B-W`, `B-P` | block access while a D64 image is mounted |
-| `DI`, `DR`, `DW` | direct sector access, needs a buffer of 512 bytes or more |
-| `T-R`, `T-W` | read or set the time, boards with an RTC |
-| `M-R`, `M-W`, `M-E` | memory access for drive detection and the fastloaders, `XR` sets a ROM file |
-| `U0>` + address | device address, saved with `XW`, used only while the hardware address of the board is the same as when it was saved |
-| `UI+`, `UI-` | faster bus protocol for the VC20 |
-| `UI`, `UJ`, `U` + Shift-J | soft reset, close all buffers, restart of the processor |
+| `$` | Directory.<br>`$=B` or `$=D` lists only directories.<br>`$=T` is the CMD style listing with time stamps and timestamp filters.<br>`*=H` includes hidden files, they are marked with an `H` after the lock mark: `PRG<H` or `PRG H`. |
+| `$=P` | CMD style partition directory with name and type filters, `$=P:S*`.<br>All partitions are listed as `NAT`, mounted images with their actual type.<br>Type filters: `=N` NAT, `=4` D41, `=7` D71, `=8` D81. `$=P:*=8` lists all D81 images, `$=P:A*=N` the NAT partitions starting with A.<br>The SYSTEM line is listed only if the name filter matches it and no type filter is given.<br>`$!` lists the EEPROM file system, `$1` to `$9` the partitions 1 to 9. |
+| `CD:name`, `CD:_` | Change directory, CMD syntax, drive and partition numbers are ignored.<br>`CD:_` or `CD_` goes up (`_` is the left arrow), `CD:foo` or `CD/foo` enters foo, `CD//foo` enters `\foo`, `CD/foo/:bar` or `CD/foo/bar` enters `foo\bar`.<br>Wildcards work anywhere in the path.<br>An image file as the last component, after a slash or a colon, is mounted, `CD:_` leaves it. Images are recognized by extension and size, a broken image is not detected. |
+| `MD:name`, `RD:name` | `MD` creates the directory after the colon relative to the directories before it: `MD/foo/:bar` creates `bar` in `foo`, `MD//foo/:bar` creates `bar` in `\foo`.<br>`RD:foo` removes a subdirectory of the current directory only. |
+| `CP`, `G-P` | `CP<num>` selects the partition, `num` is an ASCII number from 1 to 255, `C<Shift-P>` (`$42 $D0`) takes a binary number as the third character. Partition 0 means the selected partition, 1 by default. `!:` in place of a partition number addresses the EEPROM file system.<br>`G-P` returns the partition info as for CMD FD/HD, partly faked. |
+| `N:name,id` | Formats the mounted image. A name with `*`, `?`, `=` or `"` returns `30,SYNTAX ERROR`. In a DNP image only in its root directory, otherwise ignored. An id followed by `+` or `-` turns fast format on or off for this command, see `XN+`.<br>Without a mounted image and without an existing file of that name, a name with the extension `.D64`, `.D41`, `.D71` or `.D81` creates an image of that type (`.D41` is a D64), the label is the name without the extension, the id is required. An existing file is formatted like a mounted image.<br>A name without a known extension gets `.D64`, an existing file of that name is not formatted and the command ends with `63,FILE EXISTS`.<br>Paths work: `N//SUBDIR:D64TEST.D64,XX` creates the image in `/SUBDIR`.<br>On the EEPROM file system `N` formats it, name and id are ignored. |
+| `N:name.dnp,nnn` | Creates an empty DNP image with nnn tracks, 001 to 255, `N:TEST.DNP,100`. An existing file ends the command with `63,FILE EXISTS`. The image is not formatted, mount it and use `N` again. |
+| `S:name,name` | Scratch. Wildcards work, directories are skipped. The number of names is limited by the command length only, 100 to 120 characters. |
+| `R:new=old` | Rename, as on CMD drives, the error for an invalid character may differ. Names that FAT cannot store return `33,SYNTAX ERROR`. On FAT the case of a name can be changed. |
+| `C:target=source,source` | Copy, CMD syntax `C[partition][path]:target=[[partition][path]:]source[,...]`.<br>Several sources are appended to one target. Every source is relative to the current directory. Wildcards work, only the first match is copied. All sources are checked before the target is created.<br>REL files work but are little tested, REL and non-REL files cannot be mixed in one append. |
+| `A:R=foo`, `A:H=foo`, `A:=foo` | Set the attributes of a file and remove all others: `A:=foo` none, `A:R=foo` read-only, `A:H=foo` hidden, `A:RH=foo` both.<br>Works on FAT and in Dxx images. In Dxx images hidden counts only with `XH+`, without it setting hidden returns `31,SYNTAX ERROR`. Not on M2I images and not on the EEPROM file system. |
+| `L:foo`, `EL:foo`, `EU:foo` | Read-only flag, a locked file cannot be scratched or overwritten.<br>`L:foo` toggles it on the first match, `EL:foo` sets it and `EU:foo` clears it on all matches. `XL` and `XU` are the same as `EL` and `EU`. Several names separated by commas, directories are skipped.<br>`EL:$` locks a mounted Dxx image, `EU:$` unlocks it. Writing to a locked image returns `26,WRITE PROTECT ON`. The lock is the DOS version byte of the root header, 1 to 63 counts as locked. `N` never creates a locked image. |
+| `EH/:foo` | Toggles the hidden flag of the first match. The path must be present, otherwise it is a header change. In Dxx images needs `XH+`. |
+| `D:name,id`, `R-H:name` | Change the header name and id of a mounted Dxx image, in a DNP image of the current directory. The id is optional, two characters.<br>`D:foo,ba` sets name and id, `R-H:foo` only the name, `EH:foo,ba` and `XH:foo,ba` are the same as `D:`, `EH:` must not have a path.<br>Not on FAT, not on M2I images, not on the EEPROM file system. |
+| `P` | Position in a REL file, or in a regular file on FAT: `"P"+chr$(channel)+chr$(lo)+chr$(midlo)+chr$(midhi)+chr$(hi)` seeks to the 0-based offset `hi*2^24+midhi*65536+256*midlo+lo`, missing bytes are zero.<br>The file then is in random access mode and is not closed at EOF. The IEC protocol cannot send an empty payload, so reads after EOF time out until the file is positioned again. |
+| `U1`, `U2`, `B-R`, `B-W`, `B-P` | Block access while a Dxx image is mounted. `B-P` is not checked against the original ROM and takes a third parameter, the high byte of the position in a large buffer: `B-P 9 4 1` positions to byte 260 of channel 9. |
+| `DI`, `DR`, `DW` | Direct sector access of the storage device, needs a large buffer of 512 bytes or more (`OPEN9,8,9,"##2"`), a smaller one returns `78,BUFFER TOO SMALL`. `bufchan` is the secondary address of the buffer.<br>`"DI"+chr$(bufchan)+chr$(device)+chr$(page)` reads info page 0 into the buffer: valid bytes of the structure, highest page (0), disk type (0 IDE, 2 SD), sector size divided by 256, number of sectors (4 bytes, little endian). A missing device gives `DRIVE NOT READY` and 0 valid bytes. Device numbers are not stable between releases, scan at least 0 to 7. Page 0 fits in a standard buffer.<br>`"DR"+chr$(bufchan)+chr$(device)+` sector as 4 bytes, little endian, reads a sector into the buffer, `DW` writes it. Errors: `20,READ ERROR`, `25,WRITE ERROR`, `26,WRITE PROTECT ON`. |
+| `T-R`, `T-W` | Read or set the time, boards with an RTC. Without an RTC both return `30,SYNTAX ERROR`, with an RTC that is not set `T-R` returns `31,SYNTAX ERROR`.<br>The fourth character selects the format, `T-W` takes the new time right after it:<br>`A` ASCII, `SUN. 01/20/08 01:23:45 PM`+CR, day of week `SUN.`, `MON.`, `TUES`, `WED.`, `THUR`, `FRI.`, `SAT.`, year modulo 100.<br>`B` BCD and `D` decimal, 9 bytes: day of week (0 Sunday), year (BCD modulo 100, decimal minus 1900), month, day, hour 1 to 12, minute, second, AM/PM (0 AM), CR. A year below 80 is read as 20xx.<br>`I` ISO 8601 subset, `2008-01-20T13:23:45 SUN`+CR, `T-W` ignores everything after the seconds and calculates the day of week, the year has the century. |
+| `M-R`, `M-W`, `M-E` | Memory access for drive detection and the fastloaders.<br>`M-R` without `XR` answers from a table of common detection addresses and sets most fastloaders to a compatible mode (1541 mode for Dreamload and ULoad Model 3, no fastloader for Action Replay 6), unknown addresses return arbitrary data. The mounted image type gives the drive type: 1541 for D41, 1571 for D71, 1581 for D81.<br>`M-W` to the address of the device number changes the address of sd2iec, and the written data are compared with the known fastloaders, so `M-E` runs the right emulation.<br>Programs that need to detect sd2iec must use `UI` and look for `sd2iec` or `uiec`, not `M-R`. |
+| `U0>` + address | Changes the device address, `"U0>"+chr$(address)`. Other `U0` commands are not implemented. Saved with `XW`, used only while the hardware address of the board is the same as when it was saved. |
+| `UI+`, `UI-` | Slightly faster bus protocol for the VC20 on or off, little tested. |
+| `UI`, `UJ`, `U` + Shift-J | `UI` sets the `73,...` message. `UJ` closes all buffers and keeps the directory, mounted image and swap list. `U` + Shift-J (code 202) restarts the processor and skips the bootloader. |
 
 ### Extended commands
 
-X commands need the quotes with JiffyDOS: `@"XE5"`. A change lasts until the next reset. `XW` writes the settings marked in the XW column to the EEPROM and the firmware reads them at every start.
+With JiffyDOS X commands need quotes, `@"XE5"`: `@X` is a JiffyDOS command (destination drive), unquoted the drive gets nothing. A change lasts until the next reset, `XW` saves the settings marked in the XW column to the EEPROM.
 
 | Command | Action | XW | Default |
 |---|---|---|---|
-| `X` | show the current settings in the error channel | | |
-| `X?` | extended version: version, processor and suffix of the config | | |
-| `XW` | write the settings to the EEPROM | | |
-| `XEn` | extension mode, see below | yes | 1 |
-| `XE+` / `XE-` | hide the type extension of FAT files, modes 3 to 5 turn it on | yes | off |
-| `XET+` / `XET-` | refuse an explicit file type that differs from the type of the file | yes | off |
-| `XEL` / `XEU` | lock / unlock `XEn`, `XE+` and `XE-` | yes | unlocked |
-| `XIn` | disk images in the directory: 0 with their normal type, 1 as directories, 2 both | yes | 0 |
-| `XN+` / `XN-` | fast format | yes | off |
-| `XH+` / `XH-` | honor the hidden flag of files in images | yes | off |
-| `X*+` / `X*-` | 1581 style `*` matching | yes | on |
-| `XDdrv=val` | drive slots, only in the `uIEC` build (SD and ATA) | yes | board default |
-| `XR:name` / `XR` | file for M-R emulation / disable it | yes | none |
-| `XS:name` / `XS` | set up a swap list / disable it | | none |
-| `XT1text`, `XT2text` | show `text` on line 1 or 2 of the display | | |
-| `XTC` + command byte + data | send a command byte and data bytes to the display controller | | |
-| `XA` | show the version and the author of the LCD code | | |
-| `XG` | show the credits | | |
-| `XCnn` | set the contrast 0 to 63, ST7036 only | | |
-| `XOn` | seconds until the OLED dims, 1 to 254, 0 always off, 255 always on, OLED builds only | yes | 45 |
+| `X` | Shows the current settings, the ones `XW` saves, in the error channel: `03,E01-:*+:ET-:I00:N-:H-:O45:R,08,00`.<br>Fixed order, a field ends with `:`: `E` extension mode and hiding flag (`<` in place of the `:` when `XEL` locked them), `*` 1581 style matching, `ET` strict file type, `I` image display, `N` fast format, `H` hidden flag in images, `O` OLED dim time (OLED builds only), `R` file name of `XR` (empty without one). Flags are `+` or `-`, numbers have two digits. The track is the device address, the sector 0. | | |
+| `X?` | Extended version: version, processor type of the build and suffix of the config file, usually the short name of the board. | | |
+| `XW` | Writes the settings to the EEPROM: the ones marked in the XW column, the device address and, on boards with an on-board display, the bus, the menu setting, brightness and contrast. With a device address changed by software, sd2iec starts with it unless the address jumpers differ from their setting at the time of the save. Hardware overrides software, so a board stays reachable when its saved address is taken by another device on the bus. | | |
+| `XEn` | Extension mode, how files on FAT are written:<br>`0` never x00 files<br>`1` x00 for SEQ, USR and REL, not for PRG<br>`2` always x00<br>`3` file extension SEQ, USR, REL, no x00 header<br>`4` as 3, also for PRG<br>`5` as 4, characters FAT cannot store are escaped, only with `CONFIG_XE5`.<br>Modes 3 to 5 turn extension hiding on.<br>Mode 5 writes characters FAT cannot store as hex in curly braces: codes below 32 or above 95 (shifted letters too), `:/\*"<>?`, a leading `.`, a trailing `.` or space. A run of them shares one pair of braces, `A/B` is `A{2F}B`. Listings show the decoded name, in upper case if FAT stores lower case. Names are case sensitive, trailing shifted spaces are dropped. DOS device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9`) get an empty `{}` in front. A directory, or a file without type extension, whose name ends in `.PRG`, `.SEQ`, `.USR` or `.REL` gets an empty `{}` appended.<br>PRG files with the extension D64, D41, D71, D81, DNP or M2I are always written without x00 header and without `.PRG`. | yes | 1 |
+| `XE+` / `XE-` | Hide the type extension of FAT files: `APPLICATION.PRG` becomes a PRG file `APPLICATION`, `README.SEQ` a SEQ file `README`. | yes | off |
+| `XET+` / `XET-` | Refuse an explicit file type that differs from the type of an existing file: `"NAME,S"` on a PRG file returns `64,FILE TYPE MISMATCH`. | yes | off |
+| `XEL` / `XEU` | Lock / unlock `XEn`, `XE+` and `XE-`, they are ignored without a message while locked. The lock shows as `<` after the extension hiding flag in `X`. | yes | unlocked |
+| `XIn` | Disk images and M2I files in the directory: `0` with their normal type, `1` as directories (still readable as files), `2` both, twice. `1` or `2` helps software written for CMD drives that does not recognize images as mountable, but its `CD` may still fail to mount them. | yes | 0 |
+| `XN+` / `XN-` | Fast format: only the directory track of an image is wiped by `N`. | yes | off |
+| `XH+` / `XH-` | Honor the hidden flag (bit 5 of the file type) in Dxx images, ignored when off. | yes | off |
+| `X*+` / `X*-` | 1581 style `*`: characters after a `*` are matched against the end of the name. When off they are ignored. | yes | on |
+| `XDdrv=val` | Drive slots, only for boards with several drive types (the `uIEC` build, SD and ATA). `drv` is the slot 0 to 7, `val`: `0` master ATA, `1` slave ATA, `4` primary SD/MMC, `5` secondary SD/MMC, `6` reserved, `15` no device. Only devices of the board can be set, a device cannot be in two slots. Reordering ATA devices is discouraged, use the master/slave jumpers. Setting all slots to `15` resets the configuration.<br>`XD?` shows it, `03,D:00=04:01=00:02=01,10,01`: track is the device address, sector is status information. | yes | board default |
+| `XR:name` / `XR` | File for `M-R` emulation / disable it. A ROM image of a 1541, 1571 or 1581, headers are skipped, name up to 16 characters. It is searched in the current directory, in the root of the current partition and in the root of the first partition. Answers `M-R` from `$8000` to `$FFFF`, the internal table is used if the file is missing or unreadable. Needed where detection reads large parts of the ROM (GEOS), lowers fastloader compatibility, most fastloaders accept only the 1541 variant. | yes | none |
+| `XS:name` / `XS` | Set up a swap list / disable it. Text file with one image or directory per line (anything `CD` accepts), `;` starts a comment, empty lines are ignored, ASCII, or PETSCII if the first line is `#PETSCII`. The NEXT and PREV buttons walk through it and wrap around, both together go to the first entry (HOME). Without an active list `AUTOSWAP.LST` in the current directory is used and drops out on `CD`. HOME without it generates `AUTOSWAP.GEN` with all images of the directory, rename it to `AUTOSWAP.LST` to keep it. | | none |
+| `XT1text`, `XT2text` | Show `text` on line 1 or 2 of the LCD, the line is cleared first. Builds with `CONFIG_LCD_DISPLAY`. | | |
+| `XTC` + command byte + data | Send a command byte and data bytes to the display controller, `OPEN15,8,15,"XTC"+CHR$(1)` clears the display. | | |
+| `XA` | Show the version and the author of the LCD code. | | |
+| `XG` | Show the credits. | | |
+| `XCnn` | Contrast 0 to 63, ST7036 only. | | |
+| `XOn` | Seconds until the WS0010 OLED dims, 1 to 254, `0` always off, `255` never dims, OLED builds only. | yes | 45 |
 
 ## Configuration
 
