@@ -8,6 +8,9 @@ https://github.com/ataribaby42/elite-source-code-commodore-64
 
 Enabled with CONFIG_LOADER_GMA, handled in fl-gma.c.
 
+Only the loader of the original disk versions is supported. Cracks that
+upload their own drive code are not.
+
 
 Variants
 --------
