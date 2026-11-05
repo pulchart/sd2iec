@@ -80,6 +80,7 @@ CONFIG_LOADER_ANOTHERWORLD=y
 CONFIG_LOADER_WINGSOFFURY=y
 CONFIG_LOADER_ULOAD4=y
 CONFIG_LOADER_GMA=y
+CONFIG_LOADER_TCS=y
 # A remote LCD with dedicated controller is not supported because
 # the petSD+ lacks an interrupt port pin for it
 CONFIG_REMOTE_DISPLAY=n
