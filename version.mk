@@ -4,7 +4,7 @@
 # +LCD is added to PRERELEASE for configs with CONFIG_LCD_DISPLAY, +OLED with CONFIG_LCD_WS0010.
 # PRERELEASE must not be empty, the boot loader then flashes every build.
 MAJOR = 1
-MINOR = 186
-PATCHLEVEL = 6
+MINOR = 208
+PATCHLEVEL = 0
 FIX =
 PRERELEASE = -JPU
