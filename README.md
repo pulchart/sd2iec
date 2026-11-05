@@ -40,6 +40,7 @@ All together:
 
 - New: ULoad Model 4 (Ultima IV Remastered, D64, D71 and D81 images), Another World and Wings of Fury (need a 1541 ROM image set with `XR`)
 - New: GMA, the fastloader of the disk versions of Elite (tried with Elite 64, Elite 128 v2 and Elite Unbound), cracks with their own loader are not supported
+- New: TCS, the fastloader of the TCS version of Elite 64 (`elite64tcs.d64`)
 - ULoad Model 3 (Ultima 3 Gold): the D71 and D81 versions are detected, the display keeps scrolling while the loader waits
 - A long key press leaves a fastloader on boards with a display, `M-R $FEA0` answers as a 1581 on D81 images
 

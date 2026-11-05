@@ -1,0 +1,29 @@
+TCS fast loader of Elite 64 (C64)
+=================================
+
+The TCS version of Elite 64 (elite64tcs.d64) has its own fast loader. It
+hooks the LOAD vector, opens the file as usual (secondary $60), uploads 1541
+code with eight M-W blocks of 32 bytes to $0700-$07ff (CRC $8f5c) and starts
+it with M-E $07b5. The data comes from the open file.
+
+Enabled with CONFIG_LOADER_TCS, handled in fl-tcs.c.
+
+
+Protocol
+--------
+
+The handshake is the one of the GMA loaders (doc/gma.txt): the C64 pulls ATN
+low and waits for DATA to be released, the drive releases DATA and CLK and
+waits for ATN to be released, sends the byte and pulls DATA and CLK low.
+
+The bit pairs are bits 7+6, 5+4, 3+2 and 1+0, CLK first, a set bit pulls the
+line low. The first pair starts 27 us after ATN is released, the pairs follow
+every 22 us (1541 code: three shifts of a zero page byte and a store per
+pair), DATA and CLK are pulled low 8 us after the last pair. The C64 reads
+$DD00 32 cycles after it released ATN, then after 23, 20 and 22 cycles.
+
+The stream is the one of GMA85: the sectors of the file including the link
+bytes, 256 bytes per sector. A first byte of 0 marks the last sector, the
+second byte is the index of its last byte + 1. A first byte of $ff is an
+error. The link bytes of a sector that is not the last are ignored by the
+C64.

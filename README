@@ -773,6 +773,12 @@ Note: Using sd2iec without an external crystal or similiar precise
   not supported.
   Details are in doc/gma.txt.
 
+  TCS (Elite 64)
+  --------------
+  The fast loader of the TCS version of Elite 64 (elite64tcs.d64). It reads
+  the file that was opened, so it works on any file system. Details are in
+  doc/tcs.txt.
+
   G.I. Joe Loader
   ---------------
   Said to be the most-ripped IRQ loader. Unfortunately this is a

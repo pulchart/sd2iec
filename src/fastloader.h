@@ -109,6 +109,7 @@ typedef enum {
   FL_ULOAD4,
   FL_GMA86,
   FL_GMA85,
+  FL_TCS,
 } fastloaderid_t;
 
 typedef struct {
@@ -161,6 +162,7 @@ bool scan_n0s_iffl(uint8_t);
 bool load_n0s_iffl(uint8_t);
 bool load_uload4(uint8_t);
 bool load_gma(uint8_t ntsc);
+bool load_tcs(uint8_t);
 bool load_booze(uint8_t);
 bool load_spindle(uint8_t);
 bool load_bitfire(uint8_t);

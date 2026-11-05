@@ -336,6 +336,9 @@ static const PROGMEM struct fastloader_crc_s fl_crc_table[] = {
   { 0x8c28, FL_GMA86,      RXTX_NONE          }, // CRC of the GMA86 PAL drive code ($0300..$03df), track and sector as $ff
   { 0x6e22, FL_GMA85,      RXTX_NONE          }, // CRC of the GMA85 NTSC drive code ($0700..$07bf)
 #endif
+#ifdef CONFIG_LOADER_TCS
+  { 0x8f5c, FL_TCS,        RXTX_NONE          }, // CRC of the TCS drive code ($0700..$07ff)
+#endif
   { 0, FL_NONE, 0 }, // end marker
 };
 
@@ -514,6 +517,9 @@ static const PROGMEM struct fastloader_handler_s fl_handler_table[] = {
 #ifdef CONFIG_LOADER_GMA
   { 0x03b2, FL_GMA86,      load_gma, 0 },
   { 0x079c, FL_GMA85,      load_gma, 1 },
+#endif
+#ifdef CONFIG_LOADER_TCS
+  { 0x07b5, FL_TCS,        load_tcs, 0 },
 #endif
 
   { 0, FL_NONE, NULL, 0 }, // end marker
