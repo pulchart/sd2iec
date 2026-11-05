@@ -764,6 +764,15 @@ Note: Using sd2iec without an external crystal or similiar precise
   contact me so we can work out a way to trigger ULoad M3 support
   without uploading any drive code at all.
 
+  GMA (Elite)
+  -----------
+  The fast loader of the disk versions of Elite for the C64, PAL and NTSC.
+  The PAL version reads the sector chain itself, so it is only supported
+  on D64 or similiar disk image formats. Tried with Elite 64, Elite 128 v2
+  and Elite Unbound. Cracks that replace the loader with their own code are
+  not supported.
+  Details are in doc/gma.txt.
+
   G.I. Joe Loader
   ---------------
   Said to be the most-ripped IRQ loader. Unfortunately this is a
