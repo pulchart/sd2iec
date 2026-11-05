@@ -1325,6 +1325,84 @@ gma_send_byte_ntsc:
 
 #endif
 
+#ifdef CONFIG_LOADER_TCS
+        ;; send bits 7 and 6 of r0 to clock/data
+        ;; masked contents of IEC_OUTPUT expected in r19
+        ;; 8 (or 9 for 22 bit PC MCUs) cycles from rcall to out, 4 (or 5) to return
+tcs_bitpair:
+        bst     r0, 7                      ; 1
+        bld     r19, IEC_OPIN_CLOCK        ; 1
+        bst     r0, 6                      ; 1
+        bld     r19, IEC_OPIN_DATA         ; 1
+        out     _SFR_IO_ADDR(IEC_OUTPUT), r19 ; 1
+        ret                                ; 4 or 5
+
+        ;;
+        ;; Send a byte using the protocol of the TCS loader of Elite 64
+        ;;
+        ;; Called with ATN low (the C64 waits for DATA to be released) and
+        ;; the byte in r24. DATA and CLK are released, the byte is sent as
+        ;; four bit pairs, bits 7+6, 5+4, 3+2 and 1+0 (CLK first), after ATN
+        ;; went high, then DATA and CLK are pulled low until the next call.
+        ;;
+        ;; The first pair starts 27 us after ATN is released, the pairs
+        ;; follow every 22 us, DATA and CLK are pulled low 8 us after the
+        ;; last pair.
+        .global tcs_send_byte
+tcs_send_byte:
+        cli
+
+        ;; prepare data
+        in      r19, _SFR_IO_ADDR(IEC_OUTPUT)
+#ifdef IEC_OUTPUTS_INVERTED
+        andi    r19, ~(IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
+#else
+        ori     r19, (IEC_OBIT_DATA|IEC_OBIT_CLOCK|IEC_OBIT_ATN)
+        com     r24             ; port bits are line levels, send inverted
+#endif
+
+        ;; DATA and CLK high, the C64 may continue
+        xsbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
+        xsbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
+
+        ;; wait for ATN high
+1:      sbis    _SFR_IO_ADDR(IEC_INPUT), IEC_PIN_ATN
+        rjmp    1b
+
+        mov     r0, r24                                         ; 1
+
+        ;; first bitpair
+        delay_05us 54, -11-RCALL_OFFSET
+        rcall   tcs_bitpair             ; 8+4 or 9+5 - bits 7 and 6
+
+        ;; second bitpair
+        lsl     r0                                              ; 1
+        lsl     r0                                              ; 1
+        delay_us 22, -14-RET_OFFSET-RCALL_OFFSET
+        rcall   tcs_bitpair             ; bits 5 and 4
+
+        ;; third bitpair
+        lsl     r0                                              ; 1
+        lsl     r0                                              ; 1
+        delay_us 22, -14-RET_OFFSET-RCALL_OFFSET
+        rcall   tcs_bitpair             ; bits 3 and 2
+
+        ;; last bitpair
+        lsl     r0                                              ; 1
+        lsl     r0                                              ; 1
+        delay_us 22, -14-RET_OFFSET-RCALL_OFFSET
+        rcall   tcs_bitpair             ; bits 1 and 0
+
+        ;; busy, the C64 waits for DATA
+        delay_us 8, -5-RET_OFFSET
+        xcbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_DATA
+        xcbi    _SFR_IO_ADDR(IEC_OUTPUT), IEC_OPIN_CLOCK
+
+        sei
+        ret
+
+#endif
+
 #ifdef CONFIG_LOADER_GEOS
         ;;
         ;; read a byte using the GEOS protocol (common part)
