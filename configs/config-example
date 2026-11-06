@@ -239,3 +239,4 @@ CONFIG_XE5=y
 # disable SD support
 # (the build system assumes that everything uses SD unless you enable this)
 #CONFIG_NO_SD=y
+CONFIG_XEB=y
