@@ -549,7 +549,6 @@ static const PROGMEM magic_value_t drive_magics[] = {
   { 0xeaa3, { 0xff, 0x4c }, DRIVE_1541            },
   { 0xe5c6, { 0x37, 0xb1 }, DRIVE_1571            },
   { 0xa6e9, { 0x38, 0xb1 }, DRIVE_1581            },
-  { 0xfea0, { 0xff, 0xff }, DRIVE_1581            },
 #if defined(CONFIG_LOADER_ULOAD3) || defined(CONFIG_LOADER_ULOAD4)
   /* used by ULoad Model 3 and 4 on a 1571: BAM job status, double-sided flag */
   { 0x0003, { 0x01, 0x00 }, DRIVE_1571            },
