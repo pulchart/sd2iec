@@ -2067,12 +2067,23 @@ static void parse_set_header(uint8_t *in) {
 /* ------------ */
 /*  E commands  */
 /* ------------ */
+static void parse_changetype(void);
+static void parse_convert(void);
+
 static void parse_ecommand(void) {
   uint8_t *str;
 
   clean_cmdbuffer();
 
   switch (command_buffer[1]) {
+  case 'T':
+    parse_changetype();
+    break;
+
+  case 'C':
+    parse_convert();
+    break;
+
   case 'H':
     /* Header change with a colon right after the partition, hide otherwise */
     str = command_buffer+2;
@@ -2511,6 +2522,27 @@ static void parse_xcommand(void) {
         globalflags |= CHECK_TYPE;
       else if (str[1] == '-')
         globalflags &= (uint8_t)~CHECK_TYPE;
+    } else if (*str == 'B') {
+#ifdef CONFIG_XEB
+      /* XEB+/XEB-: read rule, XEB0/XEB1: write rule (not locked by XEL) */
+      str++;
+      if (*str == '+') {
+        brace_mode |= XEB_READ;
+      } else if (*str == '-') {
+        brace_mode &= (uint8_t)~XEB_READ;
+      } else {
+        num = parse_number(&str);
+        if (num > 1) {
+          set_error(ERROR_SYNTAX_UNKNOWN);
+          break;
+        }
+        brace_mode = (brace_mode & (uint8_t)~XEB_WRITE_MASK) | (num << XEB_WRITE_SHIFT);
+        if (num)
+          brace_mode |= XEB_READ;
+      }
+#else
+      set_error(ERROR_SYNTAX_UNKNOWN);
+#endif
     } else if (file_extension_lock) {
       /* Extension settings are locked, ignore */
     } else if (*str == '+') {
@@ -2710,6 +2742,112 @@ static void parse_xcommand(void) {
   }
 }
 
+/* ------------------------------- */
+/*  ET - change file type          */
+/* ------------------------------- */
+static void parse_changetype(void) {
+  path_t   path;
+  uint8_t *name, *typechar;
+  cbmdirent_t dent;
+  uint8_t  newtype;
+
+  clean_cmdbuffer();
+
+  /* ET:name,t */
+  typechar = ustrrchr(command_buffer, ',');
+  if (typechar == NULL) {
+    set_error(ERROR_SYNTAX_UNKNOWN);
+    return;
+  }
+  *typechar++ = 0;
+
+  switch (*typechar) {
+  case 'P': newtype = TYPE_PRG; break;
+  case 'S': newtype = TYPE_SEQ; break;
+  case 'U': newtype = TYPE_USR; break;
+  default:
+    set_error(ERROR_SYNTAX_UNKNOWN);
+    return;
+  }
+
+  if (parse_path(command_buffer+2, &path, &name, 0))
+    return;
+
+  if (ustrlen(name) == 0) {
+    set_error(ERROR_SYNTAX_NONAME);
+    return;
+  }
+
+  if (first_match(&path, name, FLAG_HIDDEN, &dent))
+    return;
+
+  set_error(ERROR_OK);
+  change_type(&path, &dent, newtype);
+}
+
+/* ----------------------------------------- */
+/*  EC - convert file to/from temporary name */
+/* ----------------------------------------- */
+static void parse_convert(void) {
+  path_t   path;
+ uint8_t *name, *srcname;
+  cbmdirent_t dent;
+
+  clean_cmdbuffer();
+
+  /* EC:foo        -> convert to TMP<n> */
+  /* EC:foo=TMP123 -> convert TMP123 back to foo */
+  srcname = ustrchr(command_buffer, '=');
+  if (srcname == NULL) {
+    /* Convert away: look up the file itself */
+    if (parse_path(command_buffer+2, &path, &name, 0))
+      return;
+
+    if (ustrlen(name) == 0) {
+      set_error(ERROR_SYNTAX_NONAME);
+      return;
+    }
+
+    if (first_match(&path, name, FLAG_HIDDEN, &dent))
+      return;
+
+    set_error(ERROR_OK);
+    convert_file(&path, &dent, NULL);
+  } else {
+    uint8_t *dstname;
+    path_t   dstpath;
+
+    *srcname++ = 0;
+
+    /* Destination name (left of the =) */
+    if (parse_path(command_buffer+2, &dstpath, &dstname, 0))
+      return;
+
+    if (ustrlen(dstname) == 0 || check_invalid_name(dstname)) {
+      set_error(ERROR_SYNTAX_NONAME);
+      return;
+    }
+
+    /* Source (temporary) name */
+    if (parse_path(srcname, &path, &name, 0))
+      return;
+
+    if (first_match(&path, name, FLAG_HIDDEN, &dent))
+      return;
+
+    /* Refuse to overwrite an existing file */
+    {
+      cbmdirent_t dummy;
+      if (first_match(&dstpath, dstname, FLAG_HIDDEN, &dummy) == 0) {
+        set_error(ERROR_FILE_EXISTS);
+        return;
+      }
+    }
+
+    set_error(ERROR_OK);
+    convert_file(&path, &dent, dstname);
+  }
+}
 
 /* ------------------------------------------------------------------------- */
 /*  Main command parser function                                             */

@@ -211,6 +211,9 @@ void read_configuration(void) {
     globalflags |= CHECK_TYPE;
   else
     globalflags &= (uint8_t)~CHECK_TYPE;
+#ifdef CONFIG_XEB
+  brace_mode = tmp & (XEB_WRITE_MASK | XEB_READ);
+#endif
 
 #ifdef NEED_DISKMUX
   if (size > 9) {
@@ -282,6 +285,9 @@ void write_configuration(void) {
   eeprom_write_byte(&storedconfig.hardaddress, device_hw_address());
   eeprom_write_byte(&storedconfig.fileexts,
                     file_extension_mode | (uint8_t)(file_extension_lock << 7) |
+#ifdef CONFIG_XEB
+                    brace_mode |
+#endif
                     ((globalflags & CHECK_TYPE) ? 0x40 : 0));
 #ifdef NEED_DISKMUX
   eeprom_write_word(&storedconfig.drvconfig0, drive_config);

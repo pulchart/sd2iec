@@ -65,6 +65,9 @@ typedef enum { EXT_UNKNOWN, EXT_IS_X00, EXT_IS_TYPE } exttype_t;
 
 uint8_t file_extension_mode;
 uint8_t file_extension_lock;
+#ifdef CONFIG_XEB
+uint8_t brace_mode;
+#endif
 
 /* ------------------------------------------------------------------------- */
 /*  Utility functions                                                        */
@@ -375,6 +378,12 @@ static bool ends_with_type_ext(const uint8_t *name, uint8_t len) {
 static uint8_t encode_xe5(const uint8_t *pet) {
   uint8_t n = ustrlen(pet);
   uint8_t i = 0;
+#ifdef CONFIG_XEB
+  /* XEB1 puts an empty {} in front of a name without escapes, keep room */
+  const uint8_t max = XE5_NAME_MAX - ((brace_mode & XEB_WRITE_MASK) ? 2 : 0);
+#else
+  const uint8_t max = XE5_NAME_MAX;
+#endif
   uint8_t k, p;
   bool esc = false;
 
@@ -393,7 +402,7 @@ static uint8_t encode_xe5(const uint8_t *pet) {
         p == '"' || p == '<' || p == '>' || p == '?' ||
         (k == 0 && p == '.') || (k == n-1 && (p == '.' || p == ' '))) {
       /* leave room for the closing brace */
-      if (i + (esc ? 3 : 4) > XE5_NAME_MAX)
+      if (i + (esc ? 3 : 4) > max)
         break;
 
       if (!esc) {
@@ -403,7 +412,7 @@ static uint8_t encode_xe5(const uint8_t *pet) {
       xe5_name[i++] = bin2hex(p >> 4);
       xe5_name[i++] = bin2hex(p & 15);
     } else {
-      if (i + (esc ? 2 : 1) > XE5_NAME_MAX)
+      if (i + (esc ? 2 : 1) > max)
         break;
 
       if (esc) {
@@ -418,6 +427,17 @@ static uint8_t encode_xe5(const uint8_t *pet) {
     xe5_name[i++] = '}';
 
   xe5_name[i] = 0;
+
+#ifdef CONFIG_XEB
+  /* XEB1: every name has a {, so XEB+ recognizes it as an xe5 name */
+  if (n && (brace_mode & XEB_WRITE_MASK) && !ustrchr(xe5_name, '{')) {
+    memmove(xe5_name + 2, xe5_name, i + 1);
+    xe5_name[0] = '{';
+    xe5_name[1] = '}';
+    i += 2;
+  }
+#endif
+
   return n ? i : 0;
 }
 
@@ -1229,9 +1249,19 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   ustrcpy(dent->pvt.fat.realname, finfo.fname);
 
 #ifdef CONFIG_XE5
+  /* XEB+: in xe0..xe4 a name with a { is an xe5 name. A classic name   */
+  /* can not have one, { is no valid FAT character for it.              */
+#ifdef CONFIG_XEB
+  uint8_t braced = file_extension_mode != 5 && (brace_mode & XEB_READ) &&
+                   ustrchr(finfo.lfn[0] ? finfo.lfn : finfo.fname, '{');
+#else
+  const uint8_t braced = 0;
+#endif
+  uint8_t xe5name = file_extension_mode == 5 || braced;
+
   /* Mode 5 accepts all long names that fit into the buffer */
   if (!finfo.lfn[0] ||
-      ustrlen(finfo.lfn) > (file_extension_mode == 5 ? _MAX_LFN_LENGTH : CBM_NAME_LENGTH+4)) {
+      ustrlen(finfo.lfn) > (xe5name ? _MAX_LFN_LENGTH : CBM_NAME_LENGTH+4)) {
 #else
   if (!finfo.lfn[0] || ustrlen(finfo.lfn) > CBM_NAME_LENGTH+4) {
 #endif
@@ -1241,7 +1271,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
   }
 
 #ifdef CONFIG_XE5
-  if (file_extension_mode == 5) {
+  if (xe5name) {
     /* Find the type extension before the decoding drops a trailing "{}" */
     uint8_t len = ustrlen(nameptr);
 
@@ -1273,7 +1303,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
 
 #ifdef CONFIG_XE5
     /* Mode 5 takes the type from the stored long name, the 8.3 name keeps only three characters */
-    if (file_extension_mode == 5 && ext != EXT_IS_X00) {
+    if (xe5name && ext != EXT_IS_X00) {
       ext = EXT_UNKNOWN;
       if (rawtype) {
         ext = EXT_IS_TYPE;
@@ -1320,7 +1350,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
       finfo.fsize -= P00_HEADER_SIZE;
       dent->opstype = OPSTYPE_FAT_X00;
 
-    } else if (ext == EXT_IS_TYPE && (globalflags & EXTENSION_HIDING)) {
+    } else if (ext == EXT_IS_TYPE && ((globalflags & EXTENSION_HIDING) || braced)) {
       /* Type extension */
       typechar = *ptr;
       uint8_t i = ustrlen(nameptr)-4;
@@ -1364,7 +1394,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
     }
 
 #ifdef CONFIG_XE5
-    if (file_extension_mode == 5) {
+    if (xe5name) {
       /* Trailing shifted spaces are padding, same as in d64 */
       uint8_t len = ustrlen(dent->name);
       while (len && dent->name[len-1] == 0xa0)
@@ -1372,7 +1402,7 @@ int8_t fat_readdir(dh_t *dh, cbmdirent_t *dent) {
     }
 
     /* A decoded name has no tilde, only the 8.3 name can */
-    if (file_extension_mode != 5 || nameptr == finfo.fname)
+    if (!xe5name || nameptr == finfo.fname)
 #endif
     {
       ptr = dent->name;
@@ -1829,6 +1859,33 @@ static bool rename_name_fits(const uint8_t *newname) {
  * This function renames the file in dent in the directory referenced by
  * path to newname.
  */
+static void fat_convert(path_t *path, cbmdirent_t *dent, uint8_t *newname);
+
+#if defined(CONFIG_XEB) && defined(CONFIG_XE5)
+/* Set by fat_convert while it renames: EC:dir=TMPn in xe0..xe4 */
+static uint8_t ec_rename;
+
+/**
+ * ec_dirname - xe5 form of a directory name for EC in xe0..xe4
+ * @dent   : the entry that is renamed
+ * @newname: the new name
+ *
+ * A directory can't be an x00 file. If EC converts it to a name FAT
+ * can't hold in this mode, it gets the xe5 form in ops_scratch instead,
+ * but only if XEB+ reads it back: it must have a {. Returns 1 then.
+ */
+static uint8_t ec_dirname(cbmdirent_t *dent, uint8_t *newname) {
+  if (!ec_rename || (dent->typeflags & TYPE_MASK) != TYPE_DIR ||
+      !(brace_mode & XEB_READ) || is_valid_fat_name(newname) ||
+      !encode_xe5(newname))
+    return 0;
+  ustrcpy(ops_scratch, xe5_name);
+  return ustrchr(ops_scratch, '{') != NULL;
+}
+#else
+#  define ec_dirname(d,n) 0
+#endif
+
 void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
   uint8_t *ext;
   FRESULT res;
@@ -1924,7 +1981,13 @@ void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
 
       ustrcpy(ops_scratch, newname);
       build_name(ops_scratch, dent->typeflags & TYPE_MASK, BN_RENAME);
-      if (!*ops_scratch) {
+      if (!*ops_scratch && !ec_dirname(dent, newname)) {
+        /* Not a FAT name: only an x00 file can have it, convert makes one. */
+        /* Not for a directory, convert would just come back here.          */
+        if ((dent->typeflags & TYPE_MASK) != TYPE_DIR) {
+          fat_convert(path, dent, newname);
+          return;
+        }
         set_error_ts(ERROR_SYNTAX_JOKER,0,0);
         return;
       }
@@ -1945,6 +2008,9 @@ void fat_rename(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
 
       res = f_rename(&partition[path->part].fatfs, dent->pvt.fat.realname, ops_scratch);
 #endif
+    } else if (ec_dirname(dent, newname)) {
+      /* EC on a directory: the xe5 form of the name */
+      res = f_rename(&partition[path->part].fatfs, dent->pvt.fat.realname, ops_scratch);
     } else {
       /* Normal rename */
       pet2asc(newname);
@@ -2223,6 +2289,28 @@ void image_set_headername(path_t *path, uint8_t *newname, uint8_t *newid) {
 }
 
 /**
+ * image_change_type - generic change_type for filesystems without types to change
+ */
+void image_change_type(path_t *path, cbmdirent_t *dent, uint8_t newtype) {
+  (void)path;
+  (void)dent;
+  (void)newtype;
+
+  set_error(ERROR_SYNTAX_UNABLE);
+}
+
+/**
+ * image_convert - generic convert for filesystems that do not convert
+ */
+void image_convert(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
+  (void)path;
+  (void)dent;
+  (void)newname;
+
+  set_error(ERROR_SYNTAX_UNABLE);
+}
+
+/**
  * check_free - Check if a specified number of bytes is free on the partition
  * @part: partition number
  * @need: minimum number of free bytes needed
@@ -2463,6 +2551,245 @@ static void fat_set_attrib(path_t *path, cbmdirent_t *dent, uint8_t mask, uint8_
   parse_error(res,0);
 }
 
+static void fat_change_type(path_t *path, cbmdirent_t *dent, uint8_t newtype) {
+  uint8_t *x00ext;
+  FRESULT  res;
+  FILINFO  finfo;
+
+  partition[path->part].fatfs.cdir = path->dir.fat;
+  p00cache_invalidate();
+
+  ustrcpy(ops_scratch, dent->name);
+
+  if (dent->opstype == OPSTYPE_FAT_X00)
+  {
+    x00ext = build_name(ops_scratch, newtype, BN_X00RENAME) - 1;
+
+    /* Find a free sequence number */
+    res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
+    while (res == FR_OK) {
+      *x00ext += 1;
+      if (*x00ext == '9'+1) {
+        *x00ext = '0';
+        *(x00ext-1) += 1;
+        if (*(x00ext-1) == '9'+1) {
+          set_error(ERROR_FILE_EXISTS);
+          return;
+        }
+      }
+      res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
+    }
+  }
+  else
+     x00ext = build_name(ops_scratch, newtype, BN_RENAME);
+
+  set_dirty_led(1);
+  res = f_rename(&partition[path->part].fatfs, dent->pvt.fat.realname, ops_scratch);
+  update_leds();
+
+  if (res != FR_OK)
+    parse_error(res, 0);
+}
+
+static uint8_t fat_find_tempname(path_t *path, uint8_t *name) {
+  cbmdirent_t dummy;
+  uint16_t    num;
+
+  for (num = 1; num < 10000U; num++) {
+    ustrcpy_P(name, PSTR("TMP"));
+    /* append decimal number, max 6 digits fits the 80,<name>,0,0 message */
+    {
+      uint8_t  digits[6];
+      uint8_t  i = 0;
+      uint32_t v = num;
+      uint8_t *p = name + 3;
+
+      do {
+        digits[i++] = '0' + (v % 10);
+        v /= 10;
+      } while (v);
+      while (i)
+        *p++ = digits[--i];
+      *p = 0;
+    }
+
+    if (first_match(path, name, FLAG_HIDDEN, &dummy) != 0) {
+      /* not found -> name is free */
+      set_error(ERROR_OK);
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+static void fat_convert(path_t *path, cbmdirent_t *dent, uint8_t *newname) {
+  uint8_t tempname[CBM_NAME_LENGTH+1];
+  uint8_t needs_copy;
+  uint8_t *target;
+  FRESULT res;
+  FILINFO finfo;
+  uint8_t *x00ext = NULL;
+
+  if (newname == NULL) {
+    if (file_extension_mode == 1 || file_extension_mode == 2) {
+      set_error(ERROR_SYNTAX_UNABLE);
+      return;
+    }
+
+    /* ---- ec:foo -> TMP<n> ---- */
+    if (fat_find_tempname(path, tempname)) {
+      set_error(ERROR_FILE_EXISTS);
+      return;
+    }
+    target     = tempname;
+    /* x00 files must lose their header, so copy&delete */
+    needs_copy = (dent->opstype == OPSTYPE_FAT_X00);
+  } else {
+    if (dent->opstype == OPSTYPE_FAT_X00) {
+      set_error(ERROR_SYNTAX_UNABLE);
+      return;
+    }    
+    
+    /* ---- ec:foo=TMP<n> ---- */
+    target = newname;
+
+    /* Does the target representation require an x00 header?
+       build_name() tells us by returning a non-NULL x00 extension. */
+    ustrcpy(ops_scratch, newname);
+    x00ext = build_name(ops_scratch, dent->typeflags & TYPE_MASK, 0);
+    needs_copy = x00ext != NULL;
+  }
+
+  /* A directory is never an x00 file (xe1/xe2 would copy it), it is */
+  /* just renamed. fat_rename does not come back for it.             */
+  if (!needs_copy || (dent->typeflags & TYPE_MASK) == TYPE_DIR) {
+    /* Plain rename is sufficient */
+#if defined(CONFIG_XEB) && defined(CONFIG_XE5)
+    ec_rename = 1;
+    fat_rename(path, dent, target);
+    ec_rename = 0;
+#else
+    fat_rename(path, dent, target);
+#endif
+  } else {
+    FIL destination;
+    UINT read_count, write_count;
+    uint8_t copy_buffer[128];
+
+    partition[path->part].fatfs.cdir = path->dir.fat;
+    if (x00ext) {
+      res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
+      while (res == FR_OK) {
+        *x00ext += 1;
+        if (*x00ext == '9'+1) {
+          *x00ext = '0';
+          *(x00ext-1) += 1;
+          if (*(x00ext-1) == '9'+1) {
+            set_error(ERROR_FILE_EXISTS);
+            return;
+          }
+        }
+        res = f_stat(&partition[path->part].fatfs, ops_scratch, &finfo);
+      }
+      if (res != FR_NO_FILE) {
+        parse_error(res, 0);
+        return;
+      }
+    } else {
+      /* Converting an x00 file to a plain FAT file. */
+      ustrcpy(ops_scratch, target);
+      build_name(ops_scratch, dent->typeflags & TYPE_MASK, 1);
+      if (!*ops_scratch) {
+        set_error_ts(ERROR_SYNTAX_JOKER, 0, 0);
+        return;
+      }
+    }
+
+    p00cache_invalidate();
+    set_dirty_led(1);
+    res = f_open(&partition[path->part].fatfs, &partition[path->part].imagehandle,
+                 dent->pvt.fat.realname, FA_READ | FA_OPEN_EXISTING);
+    if (res != FR_OK) goto copy_error;
+
+    res = f_open(&partition[path->part].fatfs, &destination,
+                 ops_scratch, FA_WRITE | FA_CREATE_NEW);
+    if (res != FR_OK) {
+      f_close(&partition[path->part].imagehandle);
+      goto copy_error;
+    }
+
+    if (x00ext) {
+      /* The x00 header contains the original Commodore name. */
+      memset(copy_buffer, 0, P00_HEADER_SIZE);
+      ustrcpy_P(copy_buffer, p00marker);
+      memcpy(copy_buffer + P00_CBMNAME_OFFSET, dent->name, CBM_NAME_LENGTH);
+      res = f_write(&destination, copy_buffer, P00_HEADER_SIZE, &write_count);
+      if (res == FR_OK && write_count != P00_HEADER_SIZE) res = FR_RW_ERROR;
+    } else {
+      if (f_size(&partition[path->part].imagehandle) < P00_HEADER_SIZE)
+        res = FR_RW_ERROR;
+      else
+        res = f_lseek(&partition[path->part].imagehandle, P00_HEADER_SIZE);
+    }
+
+    while (res == FR_OK) {
+      res = f_read(&partition[path->part].imagehandle, copy_buffer,
+                   sizeof(copy_buffer), &read_count);
+      if (res != FR_OK || read_count == 0) break;
+      res = f_write(&destination, copy_buffer, read_count, &write_count);
+      if (res == FR_OK && write_count != read_count) res = FR_RW_ERROR;
+    }
+
+    {
+      FRESULT close_res = f_close(&destination);
+      if (res == FR_OK) res = close_res;
+    }
+    {
+      FRESULT close_res = f_close(&partition[path->part].imagehandle);
+      if (res == FR_OK) res = close_res;
+    }
+    if (res != FR_OK) {
+      f_unlink(&partition[path->part].fatfs, ops_scratch);
+      goto copy_error;
+    }
+
+    res = f_unlink(&partition[path->part].fatfs, dent->pvt.fat.realname);
+    if (res != FR_OK) goto copy_error;
+    update_leds();
+    set_error(ERROR_OK);
+    goto copy_done;
+
+copy_error:
+    update_leds();
+    parse_error(res, 0);
+    return;
+  }
+
+copy_done:
+  if (current_error != 0 && current_error != ERROR_OK)
+    return;
+
+  if (newname == NULL) {
+    /* Report the generated name: 80,<name>,0,0 */
+    uint8_t *p = error_buffer;
+
+    set_error(ERROR_OK);
+    *p++ = '8';
+    *p++ = '0';
+    *p++ = ',';
+    ustrcpy(p, tempname);
+    while (*p) p++;
+    ustrcpy_P(p, PSTR(",0,0\r"));
+    error_buffer[CONFIG_ERROR_BUFFER_SIZE-1] = 0;
+    buffers[CONFIG_BUFFER_COUNT].data     = error_buffer;
+    buffers[CONFIG_BUFFER_COUNT].lastused = ustrlen(error_buffer)-1;
+    buffers[CONFIG_BUFFER_COUNT].position = 0;
+    current_error = 80;
+    set_error_led(0);
+  }
+}
+
 const PROGMEM fileops_t fatops = {  // These should be at bottom, to be consistent with d64ops and m2iops
   &fat_open_read,
   &fat_open_write,
@@ -2481,5 +2808,7 @@ const PROGMEM fileops_t fatops = {  // These should be at bottom, to be consiste
   &fat_chdir,
   &fat_rename,
   &fat_set_attrib,
-  &image_set_headername
+  &image_set_headername,
+  &fat_change_type,
+  &fat_convert
 };

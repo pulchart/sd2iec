@@ -469,5 +469,7 @@ const PROGMEM fileops_t m2iops = {
   image_chdir,
   m2i_rename,
   image_set_attrib,
-  image_set_headername
+  image_set_headername,
+  image_change_type,
+  image_convert
 };

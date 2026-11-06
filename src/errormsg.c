@@ -212,6 +212,12 @@ void set_error_ts(uint8_t errornum, uint8_t track, uint8_t sector) {
       msg = appendbool(msg, '*', globalflags & POSTMATCH);
       *msg++ = 'E';
       msg = appendbool(msg, 'T', globalflags & CHECK_TYPE);
+#ifdef CONFIG_XEB
+      *msg++ = 'E';
+      *msg++ = 'B';
+      msg = appendnumber(msg, (brace_mode >> XEB_WRITE_SHIFT) & 1);
+      msg = appendbool(msg, 0, brace_mode & XEB_READ);
+#endif
 
       *msg++ = 'I';
       msg = appendnumber(msg, image_as_dir);

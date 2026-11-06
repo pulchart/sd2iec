@@ -35,6 +35,7 @@ All together:
 - Extension mode 5 (`XE5`): any PETSCII name on FAT, written as `{HH}` escapes where FAT cannot store a character. File names with more than one dot, x00 names longer than 8 characters, directories starting with a dot are listed
 - Commands `A:`, `L`/`EL`/`EU`, `EH`, `R-H` and `D:` for attributes, locking and hiding of files and the header, `EL:$` locks a whole disk image
 - `XN+`/`XN-` fast format, `XET+`/`XET-` strict file type check, `XEL`/`XEU` lock of the extension settings, `XH+`/`XH-` hidden files in images
+- `ET:name,t` changes the file type, `EC` converts a file to a temporary name and back to switch the extension mode of a directory tree, `XEB` marks mode 5 names with `{}` so the other modes read them (builds with `CONFIG_XEB`)
 
 ### Fastloaders
 
@@ -86,6 +87,8 @@ Sent on the command channel, for example `OPEN15,8,15,"N:TEST,01":CLOSE15`, or `
 | `A:R=foo`, `A:H=foo`, `A:=foo` | Set the attributes of a file and remove all others: `A:=foo` none, `A:R=foo` read-only, `A:H=foo` hidden, `A:RH=foo` both.<br>Works on FAT and in Dxx images. In Dxx images hidden counts only with `XH+`, without it setting hidden returns `31,SYNTAX ERROR`. Not on M2I images and not on the EEPROM file system. |
 | `L:foo`, `EL:foo`, `EU:foo` | Read-only flag, a locked file cannot be scratched or overwritten.<br>`L:foo` toggles it on the first match, `EL:foo` sets it and `EU:foo` clears it on all matches. `XL` and `XU` are the same as `EL` and `EU`. Several names separated by commas, directories are skipped.<br>`EL:$` locks a mounted Dxx image, `EU:$` unlocks it. Writing to a locked image returns `26,WRITE PROTECT ON`. The lock is the DOS version byte of the root header, 1 to 63 counts as locked. `N` never creates a locked image. |
 | `EH/:foo` | Toggles the hidden flag of the first match. The path must be present, otherwise it is a header change. In Dxx images needs `XH+`. |
+| `ET:name,t` | Change the file type of the first match to `t`: `P`, `S` or `U`, anything else returns `31,SYNTAX ERROR`. A path is allowed.<br>In a Dxx image the type in the directory entry changes, the closed and locked flags stay.<br>On FAT the name is built for the new type in the current `XEn` mode. An x00 file stays an x00 file with the new extension, `FOO.P00` becomes `FOO.S00`.<br>Not on M2I images and not on the EEPROM file system, they return `31,SYNTAX ERROR`. |
+| `EC:name`, `EC:name=TMPn` | Convert a file to a temporary name and back, for programs that convert a directory tree between extension modes, see [Converting between extension modes](#converting-between-extension-modes).<br>`EC:name` renames the first match to `TMPn`, `n` is the smallest free number, and reports the name in the error channel: `80,TMP1,0,0`. An x00 file loses its header, it is copied and the source is deleted. Returns `31,SYNTAX ERROR` in `XE1` and `XE2`, the temporary file would get a header again.<br>`EC:name=TMPn` renames `TMPn` back to `name` in the form the current mode requires. If that form is an x00 file (SEQ, USR and REL in `XE1`, every type in `XE2`), the file is copied with a new header and the source is deleted. `name` must not exist, `63,FILE EXISTS`. An x00 file as `TMPn` returns `31,SYNTAX ERROR`.<br>A directory is renamed, never copied. FAT only, Dxx images, M2I images and the EEPROM file system return `31,SYNTAX ERROR`. |
 | `D:name,id`, `R-H:name` | Change the header name and id of a mounted Dxx image, in a DNP image of the current directory. The id is optional, two characters.<br>`D:foo,ba` sets name and id, `R-H:foo` only the name, `EH:foo,ba` and `XH:foo,ba` are the same as `D:`, `EH:` must not have a path.<br>Not on FAT, not on M2I images, not on the EEPROM file system. |
 | `P` | Position in a REL file, or in a regular file on FAT: `"P"+chr$(channel)+chr$(lo)+chr$(midlo)+chr$(midhi)+chr$(hi)` seeks to the 0-based offset `hi*2^24+midhi*65536+256*midlo+lo`, missing bytes are zero.<br>The file then is in random access mode and is not closed at EOF. The IEC protocol cannot send an empty payload, so reads after EOF time out until the file is positioned again. |
 | `U1`, `U2`, `B-R`, `B-W`, `B-P` | Block access while a Dxx image is mounted. `B-P` is not checked against the original ROM and takes a third parameter, the high byte of the position in a large buffer: `B-P 9 4 1` positions to byte 260 of channel 9. |
@@ -102,13 +105,15 @@ With JiffyDOS X commands need quotes, `@"XE5"`: `@X` is a JiffyDOS command (dest
 
 | Command | Action | XW | Default |
 |---|---|---|---|
-| `X` | Shows the current settings, the ones `XW` saves, in the error channel: `03,E01-:*+:ET-:I00:N-:H-:O45:R,08,00`.<br>Fixed order, a field ends with `:`: `E` extension mode and hiding flag (`<` in place of the `:` when `XEL` locked them), `*` 1581 style matching, `ET` strict file type, `I` image display, `N` fast format, `H` hidden flag in images, `O` OLED dim time (OLED builds only), `R` file name of `XR` (empty without one). Flags are `+` or `-`, numbers have two digits. The track is the device address, the sector 0. | | |
+| `X` | Shows the current settings, the ones `XW` saves, in the error channel: `03,E01-:*+:ET-:I00:N-:H-:O45:R,08,00`.<br>Fixed order, a field ends with `:`: `E` extension mode and hiding flag (`<` in place of the `:` when `XEL` locked them), `*` 1581 style matching, `ET` strict file type, `EB` XEB write and read flag (`EB00-`, only with `CONFIG_XEB`), `I` image display, `N` fast format, `H` hidden flag in images, `O` OLED dim time (OLED builds only), `R` file name of `XR` (empty without one). Flags are `+` or `-`, numbers have two digits. The track is the device address, the sector 0. | | |
 | `X?` | Extended version: version, processor type of the build and suffix of the config file, usually the short name of the board. | | |
 | `XW` | Writes the settings to the EEPROM: the ones marked in the XW column, the device address and, on boards with an on-board display, the bus, the menu setting, brightness and contrast. With a device address changed by software, sd2iec starts with it unless the address jumpers differ from their setting at the time of the save. Hardware overrides software, so a board stays reachable when its saved address is taken by another device on the bus. | | |
 | `XEn` | Extension mode, how files on FAT are written:<br>`0` never x00 files<br>`1` x00 for SEQ, USR and REL, not for PRG<br>`2` always x00<br>`3` file extension SEQ, USR, REL, no x00 header<br>`4` as 3, also for PRG<br>`5` as 4, characters FAT cannot store are escaped, only with `CONFIG_XE5`.<br>Modes 3 to 5 turn extension hiding on.<br>Mode 5 writes characters FAT cannot store as hex in curly braces: codes below 32 or above 95 (shifted letters too), `:/\*"<>?`, a leading `.`, a trailing `.` or space. A run of them shares one pair of braces, `A/B` is `A{2F}B`. Listings show the decoded name, in upper case if FAT stores lower case. Names are case sensitive, trailing shifted spaces are dropped. DOS device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1-9`, `LPT1-9`) get an empty `{}` in front. A directory, or a file without type extension, whose name ends in `.PRG`, `.SEQ`, `.USR` or `.REL` gets an empty `{}` appended.<br>PRG files with the extension D64, D41, D71, D81, DNP or M2I are always written without x00 header and without `.PRG`. | yes | 1 |
 | `XE+` / `XE-` | Hide the type extension of FAT files: `APPLICATION.PRG` becomes a PRG file `APPLICATION`, `README.SEQ` a SEQ file `README`. | yes | off |
 | `XET+` / `XET-` | Refuse an explicit file type that differs from the type of an existing file: `"NAME,S"` on a PRG file returns `64,FILE TYPE MISMATCH`. | yes | off |
 | `XEL` / `XEU` | Lock / unlock `XEn`, `XE+` and `XE-`, they are ignored without a message while locked. The lock shows as `<` after the extension hiding flag in `X`. | yes | unlocked |
+| `XEB+` / `XEB-` | Only with `CONFIG_XEB`. In modes 0 to 4 a FAT name that contains `{` is read as a mode 5 name: the escapes are decoded and a type extension is evaluated and removed, with `XE+` off too. Other names are read as before. Modes 0 to 4 never write `{`. Mode 5 always decodes. Not locked by `XEL`. | yes | off |
+| `XEB0` / `XEB1` | Only with `CONFIG_XEB`. In mode 5 `XEB1` puts an empty `{}` in front of every name that has no `{`, `FOO` is written as `{}FOO.PRG`, so `XEB+` recognizes every file written in mode 5. This includes directories. `XEB1` sets `XEB+` as well. Mode 5 reads names with and without `{}` the same way.<br>Files written before `XEB1` have no marker, `EC:name` followed by `EC:name=TMPn` adds it. Not locked by `XEL`. | yes | 0 |
 | `XIn` | Disk images and M2I files in the directory: `0` with their normal type, `1` as directories (still readable as files), `2` both, twice. `1` or `2` helps software written for CMD drives that does not recognize images as mountable, but its `CD` may still fail to mount them. | yes | 0 |
 | `XN+` / `XN-` | Fast format: only the directory track of an image is wiped by `N`. | yes | off |
 | `XH+` / `XH-` | Honor the hidden flag (bit 5 of the file type) in Dxx images, ignored when off. | yes | off |
@@ -154,6 +159,20 @@ Mode 5 writes these characters as the PETSCII code in hex between braces: codes 
 
 `CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9` and `LPT1` to `LPT9` get `{}` in front. A directory, or a file stored without type suffix such as a disk image, whose name ends in `.PRG`, `.SEQ`, `.USR` or `.REL` gets `{}` appended. The directory shows the decoded name, in mode 5 names are matched with case, trailing shifted spaces are dropped.
 
+### Converting between extension modes
+
+Files keep their FAT names when `XEn` changes, so files written in mode 5 do not show their PETSCII names in mode 2. A program on the C64 converts a directory tree with `EC`: every file gets a temporary name in a mode that reads it correctly, the mode is switched, and the file gets its name back in the form of the target mode. `TMPn` looks the same in all modes.
+
+For one directory:
+
+1. Switch to the source mode: `XE5` for files written in mode 5, `XE4` for files written in modes 0 to 4, it reads x00 files and type extensions. `EC:name` does not work in `XE1` and `XE2`.
+2. Read the directory including hidden files (`*=H`), note the subdirectories and convert each one the same way, `CD` into it and `CD:_` back.
+3. Read the directory again and send `EC:name` for every file and subdirectory. Note the temporary name from the error channel, `80,TMP1,0,0`, with the name.
+4. Switch to the target mode. For modes 0 to 2 turn `XE+` on so the temporary files are found with their type, and restore it afterwards. After mode 5 with `XEB1` send `XEB+` as well, the temporary names were written as `{}TMPn`.
+5. Send `EC:name=TMPn` for every noted pair. Switch back to the source mode before the parent directory continues.
+
+Subdirectories are converted after their contents, so the names for `CD` stay valid. Disk images are files, their content is not changed.
+
 ### Emergency start
 
 Hold NEXT while powering on to skip the settings saved in the EEPROM. The firmware starts with the defaults and takes the device address from the board. The EEPROM keeps its content until `XW` overwrites it. The first button change after the start is ignored, so releasing NEXT does not switch the disk image.
@@ -163,6 +182,8 @@ Hold NEXT while powering on to skip the settings saved in the EEPROM. The firmwa
 The builds are for the ATmega1284P (128 KB flash), `uIEC` and `uIEC3` for the ATmega1281.
 
 The `uIEC` build mounts 15 partitions at most, the other builds keep the number of their config.
+
+`CONFIG_XEB` is on in the configs `uIEC`, `uIEC3`, `larsp`, `sw1`, `sw2`, `petSD`, `XS-1541`, `arm2iec1`, `mbed` and `example`. `ET` and `EC` are in every build.
 
 The boards `petSD+` and `cbmSD-mini` have an ATmega1284P that runs at 8 MHz on the IEC bus and at 16 MHz on the IEEE-488 bus. A menu on the on-board display selects the bus, the device address, the disk image and the settings. All fastloaders are built except the burst and parallel ones, which need an SRQ interrupt and a parallel port these boards do not have. A long key press leaves a running loader.
 
@@ -183,7 +204,7 @@ Every update needs the programmer. avrdude erases the whole chip.
 
 ```
 avrdude -c usbasp -P usb -p m1284p \
-  -U flash:w:dist/sd2iec-1.208.0-jpu-m1284p-larsp-oled.bin:r \
+  -U flash:w:dist/sd2iec-1.208.1-jpu-m1284p-larsp-oled.bin:r \
   -U efuse:w:0xFD:m \
   -U hfuse:w:0xD2:m \
   -U lfuse:w:0xE7:m
@@ -193,7 +214,7 @@ Fuses already set, firmware only:
 
 ```
 avrdude -c usbasp -P usb -p m1284p \
-  -U flash:w:dist/sd2iec-1.208.0-jpu-m1284p-larsp-oled.bin:r
+  -U flash:w:dist/sd2iec-1.208.1-jpu-m1284p-larsp-oled.bin:r
 ```
 
 ### With bootloader
@@ -215,7 +236,7 @@ To write the firmware with the programmer and keep the bootloader, add `-D`:
 
 ```
 avrdude -c usbasp -P usb -p m1284p -D \
-  -U flash:w:dist/sd2iec-1.208.0-jpu-m1284p-larsp-oled.bin:r
+  -U flash:w:dist/sd2iec-1.208.1-jpu-m1284p-larsp-oled.bin:r
 ```
 
 ## Build
@@ -226,7 +247,7 @@ Needs `avr-gcc` and `avr-libc`. One config:
 make CONFIG=configs/config-larsp-oled
 ```
 
-The binary is `obj-m1284p-larsp-oled/sd2iec.bin`. All configs, into `dist/` as `sd2iec-<version>-<mcu>-<config>.bin`, for example `sd2iec-1.208.0-jpu-m1284p-larsp-oled.bin`:
+The binary is `obj-m1284p-larsp-oled/sd2iec.bin`. All configs, into `dist/` as `sd2iec-<version>-<mcu>-<config>.bin`, for example `sd2iec-1.208.1-jpu-m1284p-larsp-oled.bin`:
 
 ```
 make dist
@@ -238,7 +259,7 @@ make dist
 
 ## Version
 
-The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for example `1.208.0-JPU`, `1.208.0-JPU+LCD` and `1.208.0-JPU+OLED`.
+The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for example `1.208.1-JPU`, `1.208.1-JPU+LCD` and `1.208.1-JPU+OLED`.
 
 | Part | Meaning |
 |---|---|
@@ -251,15 +272,15 @@ The version format is `<major>.<build>[.<revision>]-JPU[+LCD|+OLED]`, for exampl
 
 | Where | Example |
 |---|---|
-| Error channel (`UI`) | `SD2IEC V1.208.0-JPU+OLED` |
-| LCD line 1 | `SD2IEC 1.208.0` |
-| File name | `sd2iec-1.208.0-jpu-m1284p-larsp-oled.bin` |
+| Error channel (`UI`) | `SD2IEC V1.208.1-JPU+OLED` |
+| LCD line 1 | `SD2IEC 1.208.1` |
+| File name | `sd2iec-1.208.1-jpu-m1284p-larsp-oled.bin` |
 
 The version is set in `version.mk`. The boot loader flashes every build.
 
 ## Credits
 
-LCD code by Draco, Seanser, Sascha Bader, andi6510, CapFuture1975 and Sven Oliver Moll, based on the LCD library by Peter Fleury. sd2iec by Ingo Korb and contributors, see `README`.
+LCD code by Draco, Seanser, Sascha Bader, andi6510, CapFuture1975 and Sven Oliver Moll, based on the LCD library by Peter Fleury. sd2iec by Ingo Korb and contributors, see `README`. `ET`, `EC` and `XEB` by MarcusC64.
 
 FAT file system: [FatFs](https://elm-chan.org/fsw/ff/) by ChaN, adapted for sd2iec (`src/fatfs`).
 
