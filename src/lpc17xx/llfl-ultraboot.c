@@ -1,5 +1,5 @@
 /* sd2iec - SD/MMC to Commodore serial bus interface/controller
-   Copyright (C) 2007-2022  Ingo Korb <ingo@akana.de>
+   Copyright (C) 2007-2026  Ingo Korb <ingo@akana.de>
    Ultraboot support:
    Copyright (C) 2021  Martin Thierer <mthierer@gmail.com>
 
