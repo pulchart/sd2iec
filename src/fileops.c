@@ -829,9 +829,13 @@ static void open_buffer(uint8_t secondary) {
  * fastloaders that call file_open() check for success by calling
  * find_buffer(), so the buffer must be freed in that case.
  */
-static void free_unopened_buffer(buffer_t *buf) {
-  if (!buf->read && !buf->write)
+static uint8_t free_unopened_buffer(buffer_t *buf) {
+  if (!buf->read && !buf->write) {
     free_buffer(buf);
+    return 1;
+  }
+
+  return 0;
 }
 
 /**
@@ -852,7 +856,8 @@ void file_open_previous(void) {
 
   display_filename_read(path.part, CBM_NAME_LENGTH, dent.name);
   open_read(&path, &dent, buf, 0);
-  free_unopened_buffer(buf);
+  if (free_unopened_buffer(buf))
+    previous_file_dirent.name[0] = 0;
 }
 
 /**
@@ -1165,7 +1170,8 @@ void file_open(uint8_t secondary) {
     break;
   }
 
-  free_unopened_buffer(buf);
+  if (free_unopened_buffer(buf))
+    return;
 
   if (secondary <= 1) {
     previous_file_path   = path;
